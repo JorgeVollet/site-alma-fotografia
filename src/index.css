@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --header-h: 80px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-cream-100 text-cocoa-800 font-sans;
+    /* NÃO usar overflow aqui: qualquer overflow no body/html quebra o
+       position:sticky das seções (scroll horizontal, stack de fotos).
+       O corte horizontal é feito por-seção onde necessário. */
+  }
+
+  ::selection {
+    @apply bg-clay-400/30 text-cocoa-900;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-serif;
+    font-optical-sizing: auto;
+  }
+
+  /* Scrollbar delicada */
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-cream-200;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-sand-300 rounded-full border-2 border-cream-200;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-clay-400;
+  }
+}
+
+@layer components {
+  .container-c {
+    @apply mx-auto w-full max-w-content px-6 md:px-10;
+  }
+
+  .eyebrow {
+    @apply font-sans text-xs font-medium uppercase tracking-widest2 text-clay-600;
+  }
+
+  /* Botões — cantos arredondados suaves, sálvia + blush */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-sans text-sm font-medium tracking-wide transition-all duration-300 ease-smooth;
+  }
+  .btn-primary {
+    @apply btn rounded-full bg-cocoa-800 px-7 py-3.5 text-cream-50 hover:bg-cocoa-900 hover:shadow-xl hover:shadow-cocoa-900/15 hover:-translate-y-0.5;
+  }
+  .btn-blush {
+    @apply btn rounded-full bg-clay-500 px-7 py-3.5 text-cream-50 hover:bg-clay-600 hover:shadow-xl hover:shadow-clay-600/20 hover:-translate-y-0.5;
+  }
+  .btn-outline {
+    @apply btn rounded-full border border-cocoa-800/25 px-7 py-3.5 text-cocoa-800 hover:border-cocoa-800 hover:bg-cocoa-800 hover:text-cream-50;
+  }
+  .btn-light {
+    @apply btn rounded-full bg-cream-50 px-7 py-3.5 text-cocoa-800 hover:bg-white hover:-translate-y-0.5 hover:shadow-xl;
+  }
+  .btn-ghost {
+    @apply btn rounded-full border border-cream-50/40 px-7 py-3.5 text-cream-50 hover:bg-cream-50/10;
+  }
+
+  .link-underline {
+    @apply relative after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-0 after:bg-current after:transition-all after:duration-300 hover:after:w-full;
+  }
+
+  /* Cartão padrão — mais suave e arredondado */
+  .card {
+    @apply rounded-3xl bg-cream-50 ring-1 ring-cocoa-800/5 shadow-sm;
+  }
+
+  /* Texto fluido grande */
+  .display {
+    @apply font-serif leading-[0.95] tracking-tight;
+  }
+
+  /* Pílula / selo */
+  .pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-clay-400/30 bg-blush-50 px-4 py-1.5 text-xs font-medium text-clay-600;
+  }
+
+  /* Placeholders de gradiente — agora em tons suaves blush/sálvia/champagne */
+  .ph-gradient {
+    background: linear-gradient(135deg, #f6d6cf 0%, #d8a8a0 45%, #b1736b 100%);
+  }
+  .ph-gradient-2 {
+    background: linear-gradient(135deg, #eef1ea 0%, #c2ccb8 50%, #869575 100%);
+  }
+  .ph-gradient-3 {
+    background: linear-gradient(160deg, #f0e6db 0%, #dcae8a 55%, #bb8259 100%);
+  }
+  .ph-gradient-4 {
+    background: linear-gradient(150deg, #fbeae6 0%, #eebcb2 50%, #c98e86 100%);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+    -webkit-touch-callout: none;
+  }
+  .grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+  /* Carrossel: trilho que desliza e pausa no hover */
+  .marquee-track {
+    animation: marquee var(--marquee-duration, 40s) linear infinite;
+  }
+  .marquee-pause:hover .marquee-track {
+    animation-play-state: paused;
+  }
+  /* Máscara de esmaecimento nas laterais do carrossel */
+  .fade-x-mask {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

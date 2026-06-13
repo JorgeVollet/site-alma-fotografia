@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  <g fill="#c9bea8">
+    <!-- "a" minúsculo com coração no vão, posição 1 -->
+    <path transform="translate(8,8) scale(0.42)" d="M58 18c-9-9-24-9-33 0-7 7-7 16-2 22 4 5 11 7 17 5-3 6-3 13 1 19 7 10 22 11 31 3 3-3 5-6 6-10v14h12V44c0-10-4-19-12-26zM30 30c4-4 11-4 15 0 2 2 3 5 2 8-3-2-7-2-10 0-3-2-6-3-9-2 0-2 1-4 2-6z"/>
+    <!-- "a" na posição diagonal (60,60) para o padrão repetir bem -->
+    <path transform="translate(68,68) scale(0.42)" d="M58 18c-9-9-24-9-33 0-7 7-7 16-2 22 4 5 11 7 17 5-3 6-3 13 1 19 7 10 22 11 31 3 3-3 5-6 6-10v14h12V44c0-10-4-19-12-26zM30 30c4-4 11-4 15 0 2 2 3 5 2 8-3-2-7-2-10 0-3-2-6-3-9-2 0-2 1-4 2-6z"/>
+  </g>
+</svg>
