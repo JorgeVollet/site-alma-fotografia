@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion'
+import useIsMobile from '../hooks/useIsMobile'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 
@@ -38,10 +39,12 @@ function Legenda({ slide, n }) {
 function SlideCapa({ slide, n }) {
   const ref = useRef(null)
   const reduce = useReducedMotion()
+  const isMobile = useIsMobile()
+  const estatico = reduce || isMobile
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'start start'] })
-  const scale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [0.82, 1])
-  const radius = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [40, 0])
-  const imgScale = useTransform(scrollYProgress, [0, 1], reduce ? [1, 1] : [1.2, 1])
+  const scale = useTransform(scrollYProgress, [0, 1], estatico ? [1, 1] : [0.82, 1])
+  const radius = useTransform(scrollYProgress, [0, 1], estatico ? [0, 0] : [40, 0])
+  const imgScale = useTransform(scrollYProgress, [0, 1], estatico ? [1, 1] : [1.2, 1])
 
   return (
     <div ref={ref} className="sticky top-0 z-[1] flex h-screen w-full items-center justify-center overflow-hidden">

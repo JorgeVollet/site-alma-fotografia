@@ -153,3 +153,21 @@ export function ensaiosDemo() {
     }
   })
 }
+
+// ---------------------------------------------------------------------
+//  FAVORITAS -> PORTFÓLIO
+//  Dada a lista de IDs favoritados pelo cliente (fotos CRUAS da galeria
+//  de seleção), retorna as versões FINAIS (tratadas) correspondentes.
+//  O casamento é feito por `src` (mesma foto, momento diferente).
+//  No backend real, a final referencia a crua por id — aqui usamos src.
+//  IMPORTANTE: só faz sentido quando o ensaio está 'pronto' (finais no ar).
+// ---------------------------------------------------------------------
+export function favoritasFinais(idsFavoritos, galeriaCrua = GALERIA_CLIENTE_DEMO, galeriaPronta = GALERIA_PRONTA_DEMO) {
+  if (!idsFavoritos || !idsFavoritos.length) return []
+  // src das fotos cruas favoritadas
+  const srcsFav = galeriaCrua.fotos
+    .filter((f) => idsFavoritos.includes(f.id))
+    .map((f) => f.src)
+  // pega as finais cujo src bate com uma favorita
+  return galeriaPronta.fotos.filter((f) => srcsFav.includes(f.src))
+}

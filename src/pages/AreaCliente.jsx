@@ -102,6 +102,7 @@ function Selecao({ onLogout }) {
   const [zoomIdx, setZoomIdx] = useState(null) // índice da foto ampliada
   const [cartOpen, setCartOpen] = useState(false)
   const [pagamentoOpen, setPagamentoOpen] = useState(false)
+  const [explicaOpen, setExplicaOpen] = useState(false)
 
   const extras = Math.max(0, sel.length - g.fotosInclusas)
   const valorExtra = extras * g.fotoExtra
@@ -151,6 +152,19 @@ function Selecao({ onLogout }) {
           <span className="flex items-center gap-2"><ShieldCheck size={16} className="text-terracotta-400" /> Galeria protegida</span>
           <span className="flex items-center gap-2 text-cream-100/70"><ImageOff size={15} /> Download bloqueado nesta etapa</span>
           <span className="flex items-center gap-2 text-cream-100/70"><Heart size={15} /> Toque na foto para selecionar</span>
+        </div>
+      </div>
+
+      {/* Explicação do favoritar */}
+      <div className="container-c">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-clay-400/30 bg-sand-100/60 px-5 py-3.5">
+          <p className="flex items-center gap-2 text-sm text-cocoa-700">
+            <Heart size={15} className="shrink-0 text-clay-500" />
+            Marque as fotos que você mais amou — elas guiam a nossa edição.
+          </p>
+          <button onClick={() => setExplicaOpen(true)} className="text-xs font-medium text-clay-600 underline underline-offset-2 hover:text-cocoa-800">
+            Saiba mais
+          </button>
         </div>
       </div>
 
@@ -325,6 +339,35 @@ function Selecao({ onLogout }) {
               setPagamentoOpen(false)
             }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Modal "saiba mais" sobre favoritar */}
+      <AnimatePresence>
+        {explicaOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setExplicaOpen(false)}
+            className="fixed inset-0 z-[75] grid place-items-center bg-cocoa-950/55 p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 14 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl bg-cream-50 p-7 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 font-serif text-2xl text-cocoa-800"><Heart size={20} className="text-clay-500" /> Como funciona favoritar</h3>
+                <button onClick={() => setExplicaOpen(false)} className="text-cocoa-400 hover:text-cocoa-800"><X size={20} /></button>
+              </div>
+              <div className="mt-4 space-y-3 text-sm leading-relaxed text-cocoa-600">
+                <p>Ao tocar no coração, você <strong className="text-cocoa-800">favorita</strong> as fotos que mais te tocaram. Essa escolha tem dois papéis:</p>
+                <p><strong className="text-cocoa-800">1. Guia a nossa edição.</strong> São essas fotos que vamos tratar com todo o carinho para a sua entrega final.</p>
+                <p><strong className="text-cocoa-800">2. Podem virar destaque.</strong> Depois de prontas e entregues, as suas favoritas podem ser escolhidas pelo estúdio para o nosso portfólio — a sua história inspirando outras famílias. 🤍</p>
+                <p className="text-xs text-cocoa-400">As fotos só vão para o portfólio depois de editadas e com a curadoria do estúdio. Nada é publicado sem cuidado.</p>
+              </div>
+              <button onClick={() => setExplicaOpen(false)} className="btn-primary mt-6 w-full">Entendi</button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

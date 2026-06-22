@@ -1,7 +1,8 @@
-import { CircleDollarSign, CalendarCheck, Image as ImageIcon, TrendingUp, AlertTriangle, Clock, FileSignature, Wand2, ChevronRight, MessageCircle, CalendarClock, CheckCircle2, Wallet } from 'lucide-react'
+import { CircleDollarSign, CalendarCheck, Image as ImageIcon, TrendingUp, AlertTriangle, Clock, FileSignature, Wand2, ChevronRight, MessageCircle, CalendarClock, CheckCircle2, Wallet, Sparkles } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
 import { useApp } from '../../context/AppContext'
 import { CLIENTES, getGaleriaData, FINANCEIRO_DEMO, CONTAS_DEMO, TAREFAS_DEMO, CONTRATOS_DEMO } from '../../data/crm'
+import { favoritasFinais, GALERIA_CLIENTE_DEMO, GALERIA_PRONTA_DEMO } from '../../data/galleries'
 
 function statusLabel(s) {
   return { selecionando: 'Cliente escolhendo', enviado: 'Seleção recebida', editando: 'Em edição', pronto: 'Entregue' }[s] || s
@@ -33,12 +34,17 @@ export default function Visao({ setTab }) {
   }).length + app.tarefasCustom.filter((t) => !app.tarefasFeitas[t.id] && t.prazo < HOJE).length
   const contratosPend = CONTRATOS_DEMO.filter((c) => { const st = (app.contratosEdit[c.id] || {}).status || c.status; return st === 'enviado' }).length + app.contratosCustom.filter((c) => c.status === 'enviado').length
   const ensaiosEditar = aguardando
+  // Favoritas (já editadas) prontas para virar portfólio — só o ensaio ao vivo.
+  const favParaPortfolio = app.statusEnsaio === 'pronto'
+    ? favoritasFinais(app.selecoes['demo'] || [], GALERIA_CLIENTE_DEMO, GALERIA_PRONTA_DEMO).length
+    : 0
 
   const pendencias = [
     { n: contasVencidas, label: 'conta(s) vencida(s)', icon: AlertTriangle, tab: 'contas', cor: 'text-terracotta-400' },
     { n: tarefasAtrasadas, label: 'tarefa(s) atrasada(s)', icon: Clock, tab: 'tarefas', cor: 'text-amber-300' },
     { n: contratosPend, label: 'contrato(s) aguardando assinatura', icon: FileSignature, tab: 'contratos', cor: 'text-amber-300' },
     { n: ensaiosEditar, label: 'seleção(ões) p/ iniciar edição', icon: Wand2, tab: 'selecoes', cor: 'text-clay-300' },
+    { n: favParaPortfolio, label: 'favorita(s) prontas p/ o portfólio', icon: Sparkles, tab: 'selecoes', cor: 'text-terracotta-400' },
   ].filter((p) => p.n > 0)
 
   const cards = [

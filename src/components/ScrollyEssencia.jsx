@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion'
 import { PatternBg } from './MarcaDagua'
+import useIsMobile from '../hooks/useIsMobile'
 
 // =====================================================================
 //  SCROLLYTELLING "A ALMA" — Revelação por palavra.
@@ -58,22 +59,25 @@ function montar(frases, progress, de, ate, corOn, keyBase) {
 export default function ScrollyEssencia({ selo, titulo, paragrafos = [], boasVindas = [] }) {
   const ref = useRef(null)
   const reduce = useReducedMotion()
+  const isMobile = useIsMobile()
+  // No mobile (ou reduced-motion), mostra tudo escrito de uma vez, sem pin.
+  const estatico = reduce || isMobile
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] })
 
   // Fases do scroll (0..1):
   //  selo: 0.02   | título: 0.04–0.20 | corpo: 0.20–0.74 | assinatura: 0.76+
-  const seloOpacity = useTransform(scrollYProgress, [0.0, 0.04], reduce ? [1, 1] : [0, 1])
-  const assinOpacity = useTransform(scrollYProgress, [0.74, 0.84], reduce ? [1, 1] : [0, 1])
-  const assinY = useTransform(scrollYProgress, [0.74, 0.84], reduce ? [0, 0] : [18, 0])
-  const assinScale = useTransform(scrollYProgress, [0.74, 0.84], reduce ? [1, 1] : [0.95, 1])
+  const seloOpacity = useTransform(scrollYProgress, [0.0, 0.04], estatico ? [1, 1] : [0, 1])
+  const assinOpacity = useTransform(scrollYProgress, [0.74, 0.84], estatico ? [1, 1] : [0, 1])
+  const assinY = useTransform(scrollYProgress, [0.74, 0.84], estatico ? [0, 0] : [18, 0])
+  const assinScale = useTransform(scrollYProgress, [0.74, 0.84], estatico ? [1, 1] : [0.95, 1])
 
   // Em reduced-motion, um progresso "fixo" em 1 deixa tudo aceso.
   const pFixo = useTransform(scrollYProgress, [0, 1], [1, 1])
-  const p = reduce ? pFixo : scrollYProgress
+  const p = estatico ? pFixo : scrollYProgress
 
   return (
-    <section ref={ref} className="relative bg-cream-100" style={{ height: reduce ? 'auto' : '260vh' }}>
-      <div className={'relative flex w-full items-center justify-center overflow-hidden ' + (reduce ? 'py-24' : 'sticky top-0 h-screen')}>
+    <section ref={ref} className="relative bg-cream-100" style={{ height: estatico ? 'auto' : '260vh' }}>
+      <div className={'relative flex w-full items-center justify-center overflow-hidden ' + (estatico ? 'py-20 md:py-24' : 'sticky top-0 h-screen')}>
         <PatternBg variant="champagne" opacity="opacity-[0.16]" size="150px" />
         <div className="container-c relative">
           <div className="group relative mx-auto max-w-3xl overflow-hidden rounded-[2rem] border border-cream-50/60 bg-cream-50/55 px-8 py-14 text-center shadow-[0_20px_70px_rgba(104,111,103,0.16)] backdrop-blur-2xl transition-all duration-500 hover:border-terracotta-400/40 hover:shadow-[0_28px_90px_rgba(152,110,77,0.28)] md:px-16 md:py-20">

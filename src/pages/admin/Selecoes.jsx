@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { Check, Clock, Wand2, Send, CheckCircle2, RefreshCw, Download, ChevronDown, MessageCircle, X, Wallet, CalendarClock, AlertCircle } from 'lucide-react'
+import { Check, Clock, Wand2, Send, CheckCircle2, RefreshCw, Download, ChevronDown, MessageCircle, X, Wallet, CalendarClock, AlertCircle, Sparkles } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
 import Photo from '../../components/Photo'
 import { useApp } from '../../context/AppContext'
 import { CLIENTES, getGaleriaData } from '../../data/crm'
 import { PACOTES } from '../../data/studio'
+import { favoritasFinais, GALERIA_CLIENTE_DEMO, GALERIA_PRONTA_DEMO } from '../../data/galleries'
+import LevarFavoritasPortfolio from '../../components/LevarFavoritasPortfolio'
 
 const ORDER = ['selecionando', 'enviado', 'editando', 'pronto']
 function statusLabel(s) {
@@ -20,6 +23,8 @@ export default function Selecoes() {
   const [clienteId, setClienteId] = useState('sphor')
   const [dropdown, setDropdown] = useState(false)
   const [notif, setNotif] = useState(null)
+  const [portfolioOpen, setPortfolioOpen] = useState(false)
+  const [feito, setFeito] = useState(false)
 
   const cliente = CLIENTES_COM_ENSAIO.find((c) => c.id === clienteId)
   const galeriaId = cliente.galeriaId
@@ -34,6 +39,8 @@ export default function Selecoes() {
   const extras = Math.max(0, sel.length - gdata.fotosInclusas)
   const total = pacote.preco + extras * gdata.fotoExtra
   const fotosSel = gdata.fotos.filter((f) => sel.includes(f.id))
+  // Favoritas em versão FINAL — só faz sentido com ensaio 'pronto' (demo ao vivo).
+  const favFinais = ehDemo && status === 'pronto' ? favoritasFinais(sel, GALERIA_CLIENTE_DEMO, GALERIA_PRONTA_DEMO) : []
 
   // Status de pagamento — só o ensaio AO VIVO (demo) tem pagamento real no estado.
   const pag = ehDemo ? (app.pagamento || {}) : null
@@ -193,6 +200,26 @@ export default function Selecoes() {
             {status === 'pronto' && <span className="inline-flex items-center gap-2 rounded-full bg-clay-400/20 px-4 py-2.5 text-xs text-clay-300"><CheckCircle2 size={15} /> Fotos entregues</span>}
           </div>
 
+          {/* Sugestão: levar favoritas (já editadas) pro portfólio */}
+          {favFinais.length > 0 && !feito && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta-400/30 bg-gradient-to-br from-terracotta-500/12 to-cocoa-900 p-5">
+              <div className="flex items-start gap-3">
+                <Sparkles size={20} className="mt-0.5 shrink-0 text-terracotta-400" />
+                <div>
+                  <p className="font-medium text-cream-100">{cliente.nome} amou {favFinais.length} {favFinais.length === 1 ? 'foto' : 'fotos'} deste ensaio.</p>
+                  <p className="mt-0.5 text-sm text-cream-100/65">Agora que estão editadas e entregues, que tal levá-las pro seu portfólio? Você revisa antes.</p>
+                </div>
+              </div>
+              <button onClick={() => setPortfolioOpen(true)} className="btn-light !py-2.5 text-xs"><Sparkles size={15} /> Levar pro portfólio</button>
+            </div>
+          )}
+          {feito && (
+            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-400/25">
+              <CheckCircle2 size={18} className="text-emerald-300" />
+              <p className="text-sm text-cream-100/85">Favoritas adicionadas ao seu portfólio! Veja na aba <strong className="text-emerald-300">Portfólio</strong>.</p>
+            </div>
+          )}
+
           <h3 className="mt-8 font-serif text-xl">Fotos selecionadas por {cliente.nome}</h3>
           <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
             {fotosSel.map((f) => (
@@ -205,6 +232,17 @@ export default function Selecoes() {
         </>
       )}
 
+      <AnimatePresence>
+        {portfolioOpen && (
+          <LevarFavoritasPortfolio
+            fotos={favFinais}
+            clienteNome={cliente.nome}
+            ensaioNome={cliente.ensaios[0].titulo}
+            onClose={() => setPortfolioOpen(false)}
+            onConcluido={() => { setPortfolioOpen(false); setFeito(true) }}
+          />
+        )}
+      </AnimatePresence>
       {notif && <NotifModal notif={notif} onClose={() => setNotif(null)} />}
     </div>
   )

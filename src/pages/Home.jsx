@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
-import { ArrowUpRight, ArrowRight, Plus } from 'lucide-react'
+import { ArrowUpRight, ArrowRight, Plus, ChevronDown } from 'lucide-react'
 import Reveal from '../components/Reveal'
 import Photo from '../components/Photo'
 import Avaliacoes from '../components/Avaliacoes'
@@ -10,6 +10,7 @@ import { Parallax, ParallaxImg, RevealCinematic, TituloScroll, ImagemCresce } fr
 import CardEquipe from '../components/CardEquipe'
 import ScrollHorizontal, { ItemHorizontal } from '../components/ScrollHorizontal'
 import ScrollyEssencia from '../components/ScrollyEssencia'
+import useIsMobile from '../hooks/useIsMobile'
 import ScrollStack from '../components/ScrollStack'
 import { STUDIO, SERVICOS, PROCESSO, ESSENCIA, EQUIPE } from '../data/studio'
 import { DESTAQUES } from '../data/galleries'
@@ -176,7 +177,81 @@ function Essencia() {
 
 
 
+// Seleciona a versão certa: desktop = scroll cinematográfico (pin);
+// mobile = accordion de clique manual (sem travar o scroll).
 function IndiceServicos() {
+  const isMobile = useIsMobile()
+  return isMobile ? <IndiceServicosMobile /> : <IndiceServicosDesktop />
+}
+
+// --- Versão MOBILE: accordion de clique, sem pin ---
+function IndiceServicosMobile() {
+  const lista = SERVICOS.slice(0, 6)
+  const [aberto, setAberto] = useState(null)
+  return (
+    <section className="bg-cocoa-950 py-16 text-cream-100">
+      <div className="container-c">
+        <SeloCircular className="mb-5 opacity-15" size="h-16 w-16" />
+        <span className="font-sans text-xs uppercase tracking-widest2 text-terracotta-400">02 — O que fazemos</span>
+        <h2 className="display mt-3 text-4xl leading-[0.95]">Cada fase,<br /><span className="italic text-sand-200">um ensaio.</span></h2>
+
+        <div className="mt-8">
+          {lista.map((s, i) => {
+            const on = aberto === i
+            return (
+              <div key={s.id} className="border-t border-cream-100/10">
+                <button
+                  onClick={() => setAberto(on ? null : i)}
+                  className="flex w-full items-center gap-4 py-5 text-left"
+                  aria-expanded={on}
+                >
+                  <span className="font-sans text-sm text-cream-100/30">{String(i + 1).padStart(2, '0')}</span>
+                  <h3 className={'display flex-1 text-3xl transition-colors ' + (on ? 'text-sand-300' : 'text-cream-50')}>{s.nome}</h3>
+                  <ChevronDown size={22} className={'shrink-0 text-cream-100/40 transition-transform ' + (on ? 'rotate-180' : '')} />
+                </button>
+                <AnimatePresence initial={false}>
+                  {on && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.35, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pb-7">
+                        {s.foto ? (
+                          <div className="overflow-hidden rounded-sm">
+                            <img src={s.foto} alt={`Ensaio ${s.nome} — Alma Fotografia`} loading="lazy" draggable={false} className="max-h-[42vh] w-full rounded-sm object-cover" />
+                          </div>
+                        ) : (
+                          <div className={`${s.gradient} aspect-[16/9] w-full rounded-sm`} />
+                        )}
+                        <p className="mt-5 font-sans text-base font-light leading-relaxed text-cream-100/75">{s.descricao}</p>
+                        <ul className="mt-4 flex flex-wrap gap-2">
+                          {s.tags.map((t) => (
+                            <li key={t} className="rounded-full border border-cream-100/15 px-3 py-1.5 text-xs text-cream-100/70">{t}</li>
+                          ))}
+                        </ul>
+                        <div className="mt-6 flex flex-col gap-3">
+                          <Link to={`/servicos#${s.id}`} className="inline-flex items-center gap-2 text-sm text-cream-100 link-underline">Ver página de {s.nome} <ArrowRight size={15} /></Link>
+                          <Link to="/agendar" className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">Agendar {s.nome} <ArrowUpRight size={15} /></Link>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )
+          })}
+        </div>
+
+        <Link to="/servicos" className="btn-ghost mt-8 w-fit">Ver todos os serviços <ArrowRight size={15} /></Link>
+      </div>
+    </section>
+  )
+}
+
+function IndiceServicosDesktop() {
   const lista = SERVICOS.slice(0, 6)
   const ref = useRef(null)
   const { scrollYProgress } = useScroll({

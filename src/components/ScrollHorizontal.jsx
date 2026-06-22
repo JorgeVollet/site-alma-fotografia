@@ -1,5 +1,6 @@
 import { useRef, useState, useLayoutEffect } from 'react'
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion'
+import useIsMobile from '../hooks/useIsMobile'
 
 // =====================================================================
 //  SCROLL HORIZONTAL — técnica sticky-pin (estilo AETHER design system).
@@ -16,12 +17,14 @@ export default function ScrollHorizontal({ painel, children, bg = '' }) {
   const sectionRef = useRef(null)
   const trackRef = useRef(null)
   const reduce = useReducedMotion()
+  const isMobile = useIsMobile()
+  const estatico = reduce || isMobile
   const [distancia, setDistancia] = useState(0)   // px que o track precisa andar
   const [alturaPx, setAlturaPx] = useState(0)     // altura da seção em px
 
   // mede o quanto o track excede a largura da tela e dimensiona a seção
   useLayoutEffect(() => {
-    if (reduce) return
+    if (estatico) return
     const calc = () => {
       const track = trackRef.current
       if (!track) return
@@ -35,7 +38,7 @@ export default function ScrollHorizontal({ painel, children, bg = '' }) {
     calc()
     window.addEventListener('resize', calc)
     return () => window.removeEventListener('resize', calc)
-  }, [reduce, children])
+  }, [estatico, children])
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -46,7 +49,7 @@ export default function ScrollHorizontal({ painel, children, bg = '' }) {
   // parado (respiro curto) até soltar. Cards permanecem visíveis.
   const x = useTransform(scrollYProgress, [0, 0.88, 1], [0, -distancia, -distancia])
 
-  if (reduce) {
+  if (estatico) {
     return (
       <section className={'relative ' + bg}>
         <div className="container-c py-[10vh]">

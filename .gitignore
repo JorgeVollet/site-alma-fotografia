@@ -26,8 +26,9 @@ public/fotos/IMG-*.jpg
 # Capturas de tela (não são do site)
 Captura*.png
 
-# Documentos internos de NFe (contêm e-mail/endpoint pessoais)
+# Documentos internos (NFe e apresentações — uso interno do JV Web Studio)
 docs/nfe/
+docs/apresentacao/
 
 # Logs/cache do editor
 .claude/
