@@ -1,5 +1,29 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { ensaiosDemo } from '../data/galleries'
+import { supabase } from '../lib/supabase'
+import { FUNIL_ETAPAS } from '../data/crm'
+import { etapaFunilDeGaleria } from '../data/statusEnsaio'
+import { fetchClientes, criarCliente, atualizarCliente, moverClienteFunil } from '../lib/clientes'
+import { fetchEnsaios, criarEnsaio as dbCriarEnsaio, atualizarEnsaio as dbAtualizarEnsaio, removerEnsaio as dbRemoverEnsaio } from '../lib/ensaios'
+import { criarAgendamento, fetchAgendamentos, atualizarAgendamentoStatus, confirmarAgendamentoDB } from '../lib/agendamentos'
+import { fetchGalerias, atualizarGaleria } from '../lib/galerias'
+import {
+  fetchContratos,
+  criarContrato as dbCriarContrato,
+  atualizarContrato as dbAtualizarContrato,
+  assinarContrato as dbAssinarContrato,
+  enviarContrato as dbEnviarContrato,
+  excluirContrato as dbExcluirContrato,
+} from '../lib/contratos'
+import { fetchNotas, fetchFaturaveis, gerarNota as dbGerarNota, marcarNotaEmitida as dbMarcarNotaEmitida, cancelarNota as dbCancelarNota, reverterEmissao as dbReverterEmissao, excluirNota as dbExcluirNota } from '../lib/notas'
+
+// ordem das etapas do funil (p/ nunca regredir uma etapa já avançada)
+const ORDEM_FUNIL = FUNIL_ETAPAS.reduce((acc, e, i) => { acc[e.id] = i; return acc }, {})
+const etapaMax = (a, b) => {
+  if (!a) return b
+  if (!b) return a
+  return (ORDEM_FUNIL[a] ?? 0) >= (ORDEM_FUNIL[b] ?? 0) ? a : b
+}
 
 const AppContext = createContext(null)
 export const useApp = () => useContext(AppContext)
@@ -70,6 +94,9 @@ const DEFAULT_STATE = {
   bufferDepois: 2,
   // funil: { clienteId: etapaId } — sobrescreve o padrão do crm.js
   funilOverride: {},
+  // status de ensaio por cliente { clienteId: 'selecionando'|'enviado'|'editando'|'pronto' }
+  // (FASE 1 — status real por cliente, generaliza o statusEnsaio global)
+  statusEnsaioOverride: {},
   // tarefas concluídas extras { id: true }
   tarefasFeitas: {},
   // log de notificações enviadas (demo)
@@ -92,10 +119,7 @@ const DEFAULT_STATE = {
   contasEdit: {}, // { id: { status } }
   contasCustom: [],
   contasExcluida: {},
-  // contratos: status atualizado { id: { status, assinadoEm } }
-  contratosEdit: {},
-  contratosCustom: [],
-  contratosExcluido: {},
+  // (contratos agora vêm do banco — ver contratosDB)
   // workflow: { projetoId: { etapa, responsavel } }
   workflowOverride: {},
   // clientes adicionados pelo admin + edições dos demo
@@ -126,6 +150,64 @@ export function AppProvider({ children }) {
       /* ignore */
     }
   }, [state])
+
+  // === BLOCO 2/3 — DADOS NO BANCO ==================================
+  // clientes + ensaios + agendamentos vêm do Supabase. Carregam só quando
+  // há sessão (equipe logada); no site público ficam vazios (RLS bloqueia).
+  const [clientesDB, setClientesDB] = useState([])
+  const [ensaiosDB, setEnsaiosDB] = useState([])
+  const [agendamentosDB, setAgendamentosDB] = useState([])
+  const [galeriasDB, setGaleriasDB] = useState([])
+  const [contratosDB, setContratosDB] = useState([])
+  const [notasDB, setNotasDB] = useState([])
+  const [faturaveisDB, setFaturaveisDB] = useState([])
+  useEffect(() => {
+    let vivo = true
+    const carregar = async (session) => {
+      if (!session) {
+        if (vivo) { setClientesDB([]); setEnsaiosDB([]); setAgendamentosDB([]); setGaleriasDB([]); setContratosDB([]); setNotasDB([]); setFaturaveisDB([]) }
+        return
+      }
+      const [cli, ens, ags, gal, ctr, nfs, fat] = await Promise.all([
+        fetchClientes(), fetchEnsaios(), fetchAgendamentos(), fetchGalerias(), fetchContratos(), fetchNotas(), fetchFaturaveis(),
+      ])
+      if (vivo) { setClientesDB(cli); setEnsaiosDB(ens); setAgendamentosDB(ags); setGaleriasDB(gal); setContratosDB(ctr); setNotasDB(nfs); setFaturaveisDB(fat) }
+    }
+    supabase.auth.getSession().then(({ data }) => carregar(data.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => carregar(session))
+    return () => { vivo = false; sub.subscription.unsubscribe() }
+  }, [])
+
+  // === CLIENTE UNIFICADO ===========================================
+  // Lista efetiva de clientes: vem do BANCO (clientesDB), com as camadas
+  // de override ainda aplicadas por cima (funilOverride/statusEnsaioOverride
+  // são usadas pelas costuras de contrato/workflow). Qualquer módulo deve
+  // ler ESTA lista.
+  const clientes = useMemo(() => {
+    return clientesDB.map((c) => {
+      const base = { ...c, ...(state.clientesEdit[c.id] || {}) }
+      // ensaios do cliente, com STATUS derivado da galeria ligada (se houver)
+      const ensaios = ensaiosDB
+        .filter((e) => e.clienteId === c.id)
+        .map((e) => {
+          const g = galeriasDB.find((gg) => gg.ensaioId === e.id)
+          return { ...e, status: g ? g.status : e.status, galeriaId: g ? g.id : null }
+        })
+      // etapa do funil = posição MANUAL (override do workflow) ou a guardada no
+      // banco. NÃO é mais "puxada pra frente" pela galeria a cada render — isso
+      // travava mover o card pra trás depois que o cliente recebia uma seleção
+      // (pior ainda com vários ensaios no mesmo cliente: um ensaio entregue
+      // prendia o cliente inteiro). O avanço automático ao mudar o status da
+      // galeria continua existindo, mas PERSISTIDO (em mudarStatusGaleria) — então
+      // você pode mover o cliente livremente pra qualquer etapa quando quiser.
+      const etapa = state.funilOverride[c.id] || base.funil
+      return { ...base, funil: etapa, etapa, ensaios }
+    })
+  }, [clientesDB, ensaiosDB, galeriasDB, state.clientesEdit, state.funilOverride])
+
+  const getCliente = useCallback((id) => clientes.find((c) => c.id === id), [clientes])
+  const getClienteNome = useCallback((id) => (clientes.find((c) => c.id === id) || {}).nome || id, [clientes])
+  const getClienteEtapa = useCallback((id) => (clientes.find((c) => c.id === id) || {}).etapa, [clientes])
 
   // --- Seleção de fotos ---------------------------------------------
   const toggleFoto = useCallback((galeriaId, fotoId) => {
@@ -178,11 +260,11 @@ export function AppProvider({ children }) {
   }, [])
 
   const liberarDownload = useCallback((notif) => {
+    // A costura "entrega -> entregue no funil" agora vem do status real da
+    // galeria (status 'pronto' => etapa 'entregue', derivado no memo `clientes`).
     setState((s) => ({
       ...s,
       statusEnsaio: 'pronto',
-      // costura: entregar as fotos da Helena move ela para 'entregue' no funil
-      funilOverride: { ...s.funilOverride, sphor: 'entregue' },
       notificacoes: notif ? [{ ...notif, em: new Date().toISOString() }, ...s.notificacoes] : s.notificacoes,
     }))
   }, [])
@@ -195,13 +277,61 @@ export function AppProvider({ children }) {
     setState(DEFAULT_STATE)
   }, [])
 
-  // --- Agendamentos -------------------------------------------------
-  const adicionarAgendamento = useCallback((ag) => {
-    setState((s) => ({
-      ...s,
-      agendamentos: [{ ...ag, id: Date.now(), criadoEm: new Date().toISOString() }, ...s.agendamentos],
-    }))
+  // Recarrega clientes+ensaios+agendamentos+galerias do banco (se houver sessão).
+  const recarregarCRM = useCallback(async () => {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session) return
+    const [cli, ens, ags, gal, ctr, nfs, fat] = await Promise.all([
+      fetchClientes(), fetchEnsaios(), fetchAgendamentos(), fetchGalerias(), fetchContratos(), fetchNotas(), fetchFaturaveis(),
+    ])
+    setClientesDB(cli); setEnsaiosDB(ens); setAgendamentosDB(ags); setGaleriasDB(gal); setContratosDB(ctr); setNotasDB(nfs); setFaturaveisDB(fat)
   }, [])
+
+  // Recarrega só contratos + notas + fila de faturáveis (mais leve).
+  const recarregarFiscal = useCallback(async () => {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session) return
+    const [ctr, nfs, fat] = await Promise.all([fetchContratos(), fetchNotas(), fetchFaturaveis()])
+    setContratosDB(ctr); setNotasDB(nfs); setFaturaveisDB(fat)
+  }, [])
+
+  // --- Galeria: mudar status (com costura p/ o funil do cliente) ----
+  const mudarStatusGaleria = useCallback(async (galeriaId, novoStatus) => {
+    const g = await atualizarGaleria(galeriaId, { status: novoStatus })
+    if (!g) return null
+    setGaleriasDB((l) => l.map((x) => (x.id === galeriaId ? { ...x, status: novoStatus } : x)))
+    // costura: avança o cliente no funil (forward-only), persistindo no banco
+    if (g.clienteId) {
+      const etapa = etapaFunilDeGaleria(novoStatus)
+      const atual = clientesDB.find((c) => c.id === g.clienteId)
+      const etapaAtual = atual?.funil_etapa || atual?.funil
+      if (etapaMax(etapaAtual, etapa) === etapa && etapa !== etapaAtual) {
+        moverClienteFunil(g.clienteId, etapa)
+        setClientesDB((l) => l.map((c) => (c.id === g.clienteId ? { ...c, funil: etapa, etapa } : c)))
+      }
+    }
+    return g
+  }, [clientesDB])
+
+  // --- Agendamentos: confirmar (com duração real) / cancelar --------
+  const confirmarAgendamento = useCallback(async (id, duracaoMin) => {
+    await confirmarAgendamentoDB(id, duracaoMin)
+    setAgendamentosDB((l) => l.map((a) => (a.id === id ? { ...a, status: 'confirmado', duracaoMin: duracaoMin || null } : a)))
+  }, [])
+  const cancelarAgendamento = useCallback(async (id) => {
+    await atualizarAgendamentoStatus(id, 'cancelado')
+    setAgendamentosDB((l) => l.map((a) => (a.id === id ? { ...a, status: 'cancelado' } : a)))
+  }, [])
+
+  // --- Agendamentos (banco) -----------------------------------------
+  // Reserva do site: grava no Supabase (anon insert, status "a-confirmar").
+  // O trigger no banco pode ter criado/ligado um cliente + ensaio (costura),
+  // então recarregamos o CRM para refletir isso na hora (se logado).
+  const adicionarAgendamento = useCallback(async (ag) => {
+    const novo = await criarAgendamento(ag)
+    await recarregarCRM()
+    return novo
+  }, [recarregarCRM])
 
   // --- Calendário de disponibilidade --------------------------------
   const toggleDiaBloqueado = useCallback((dia) => {
@@ -293,28 +423,31 @@ export function AppProvider({ children }) {
     (dia) => {
       if (state.diasBloqueados.includes(dia)) return []
       const bloq = state.horariosBloqueados[dia] || []
-      const ocupados = state.agendamentos.filter((a) => a.dia === dia).map((a) => a.hora)
+      // reservas do dia (não canceladas). Cada uma bloqueia a janela
+      // [hora − bufferAntes, hora + DURAÇÃO + bufferDepois]. Reserva sem
+      // duração ainda usa um padrão de 60 min até ser confirmada.
+      const doDia = agendamentosDB.filter((a) => a.dia === dia && a.status !== 'cancelado')
 
       const antesMin = (state.bufferAntes || 0) * 60
       const depoisMin = (state.bufferDepois || 0) * 60
 
-      // usa os horários personalizados do dia, se houver; senão o padrão
       const custom = state.horariosCustom[dia]
       const lista = custom && custom.length ? [...custom].sort() : HORARIOS_PADRAO
 
       return lista.filter((h) => {
         if (bloq.includes(h)) return false
-        if (ocupados.includes(h)) return false
-        // some se cair dentro da janela de buffer de algum ensaio ocupado
         const hMin = paraMin(h)
-        const dentroBuffer = ocupados.some((occ) => {
-          const oMin = paraMin(occ)
-          return hMin >= oMin - antesMin && hMin <= oMin + depoisMin
+        const dentro = doDia.some((a) => {
+          if (!a.hora) return false // reserva sem horário não bloqueia slot específico
+          const oMin = paraMin(a.hora)
+          if (Number.isNaN(oMin)) return false
+          const dur = a.duracaoMin || 60
+          return hMin >= oMin - antesMin && hMin <= oMin + dur + depoisMin
         })
-        return !dentroBuffer
+        return !dentro
       })
     },
-    [state.diasBloqueados, state.horariosBloqueados, state.agendamentos, state.bufferAntes, state.bufferDepois, state.horariosCustom]
+    [state.diasBloqueados, state.horariosBloqueados, agendamentosDB, state.bufferAntes, state.bufferDepois, state.horariosCustom]
   )
 
   // admin define o buffer (horas) antes e depois de cada ensaio
@@ -327,8 +460,16 @@ export function AppProvider({ children }) {
   }, [])
 
   // --- Funil --------------------------------------------------------
+  // Move o cliente de etapa no banco (otimista na UI, persiste no Supabase).
   const moverFunil = useCallback((clienteId, etapaId) => {
-    setState((s) => ({ ...s, funilOverride: { ...s.funilOverride, [clienteId]: etapaId } }))
+    setClientesDB((l) => l.map((c) => (c.id === clienteId ? { ...c, funil: etapaId, etapa: etapaId } : c)))
+    // limpa eventual override antigo pra não mascarar o valor do banco
+    setState((s) => {
+      if (!(clienteId in s.funilOverride)) return s
+      const { [clienteId]: _, ...resto } = s.funilOverride
+      return { ...s, funilOverride: resto }
+    })
+    moverClienteFunil(clienteId, etapaId)
   }, [])
 
   // --- Tarefas ------------------------------------------------------
@@ -443,110 +584,80 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  // --- Contratos ----------------------------------------------------
-  // Ao assinar: marca assinado + cria conta a receber + move cliente no funil.
-  const assinarContrato = useCallback((id, contrato) => {
-    setState((s) => {
-      const hoje = new Date().toISOString().slice(0, 10)
-      let contasCustom = s.contasCustom
-      let funilOverride = s.funilOverride
-      if (contrato) {
-        const jaTemConta = contasCustom.some((c) => c.contratoOrigem === id)
-        if (!jaTemConta && contrato.valor) {
-          // vencimento sugerido: 30 dias após assinatura
-          const venc = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
-          contasCustom = [{
-            id: 'conta-contrato-' + id,
-            custom: true,
-            contratoOrigem: id,
-            tipo: 'receber',
-            descricao: 'Contrato — ' + (contrato.clienteNome || ''),
-            valor: contrato.valor,
-            vencimento: venc,
-            cliente: contrato.cliente || '',
-            categoria: 'Pacote',
-            status: 'pendente',
-          }, ...contasCustom]
-        }
-        // move o cliente no funil para 'agendado' (negócio fechado)
-        if (contrato.cliente) {
-          const atual = s.funilOverride[contrato.cliente]
-          // só avança se ainda estiver em lead/orcamento
-          if (atual === 'lead' || atual === 'orcamento' || atual === undefined) {
-            funilOverride = { ...s.funilOverride, [contrato.cliente]: 'agendado' }
-          }
-        }
-      }
-      return {
-        ...s,
-        contratosEdit: { ...s.contratosEdit, [id]: { status: 'assinado', assinadoEm: hoje } },
-        contasCustom,
-        funilOverride,
-      }
-    })
+  // --- Contratos (banco) --------------------------------------------
+  // Criar: aceita pdfFile (File) p/ upload no bucket privado. Otimista na lista.
+  const criarContrato = useCallback(async (contrato) => {
+    const novo = await dbCriarContrato(contrato)
+    if (novo) setContratosDB((l) => [novo, ...l])
+    return novo
   }, [])
 
-  const atualizarContrato = useCallback((id, campos, custom) => {
-    setState((s) => {
-      if (custom) return { ...s, contratosCustom: s.contratosCustom.map((c) => (c.id === id ? { ...c, ...campos } : c)) }
-      return { ...s, contratosEdit: { ...s.contratosEdit, [id]: { ...(s.contratosEdit[id] || {}), ...campos } } }
-    })
+  const atualizarContrato = useCallback(async (id, campos) => {
+    const atualizado = await dbAtualizarContrato(id, campos)
+    if (atualizado) setContratosDB((l) => l.map((c) => (c.id === id ? atualizado : c)))
+    return atualizado
   }, [])
 
-  const criarContrato = useCallback((contrato) => {
-    setState((s) => ({ ...s, contratosCustom: [{ ...contrato, id: 'contr-' + Date.now(), custom: true, status: 'rascunho', criado: new Date().toISOString().slice(0, 10) }, ...s.contratosCustom] }))
+  const excluirContrato = useCallback(async (id) => {
+    const ok = await dbExcluirContrato(id)
+    if (ok) setContratosDB((l) => l.filter((c) => c.id !== id))
+    return ok
   }, [])
 
-  const excluirContrato = useCallback((id, custom) => {
-    setState((s) => {
-      if (custom) return { ...s, contratosCustom: s.contratosCustom.filter((c) => c.id !== id) }
-      return { ...s, contratosExcluido: { ...s.contratosExcluido, [id]: true } }
-    })
+  // Enviar p/ assinatura: marca 'enviado' no banco + registra a notificação WhatsApp.
+  const enviarContrato = useCallback(async (id, notif) => {
+    const atualizado = await dbEnviarContrato(id)
+    if (atualizado) setContratosDB((l) => l.map((c) => (c.id === id ? atualizado : c)))
+    if (notif) setState((s) => ({ ...s, notificacoes: [{ ...notif, em: new Date().toISOString() }, ...s.notificacoes] }))
+    return atualizado
   }, [])
 
-  // Enviar contrato para assinatura (marca 'enviado' + registra notificação WhatsApp)
-  const enviarContrato = useCallback((id, notif, custom) => {
-    setState((s) => {
-      const hoje = new Date().toISOString().slice(0, 10)
-      const notificacoes = notif ? [{ ...notif, em: new Date().toISOString() }, ...s.notificacoes] : s.notificacoes
-      if (custom) return { ...s, contratosCustom: s.contratosCustom.map((c) => (c.id === id ? { ...c, status: 'enviado', enviadoEm: hoje } : c)), notificacoes }
-      return { ...s, contratosEdit: { ...s.contratosEdit, [id]: { ...(s.contratosEdit[id] || {}), status: 'enviado', enviadoEm: hoje } }, notificacoes }
-    })
+  // Marcar assinado (admin). O trigger no banco faz a costura: conta a receber
+  // + move o cliente no funil. Recarrega o CRM p/ refletir isso na hora.
+  const assinarContrato = useCallback(async (id) => {
+    const atualizado = await dbAssinarContrato(id)
+    if (atualizado) setContratosDB((l) => l.map((c) => (c.id === id ? atualizado : c)))
+    await recarregarCRM()
+    return atualizado
+  }, [recarregarCRM])
+
+  // --- Notas fiscais (banco) ----------------------------------------
+  // Gera a nota a partir de um faturável (conta paga sem nota) e atualiza as listas.
+  const gerarNota = useCallback(async (faturavel, tipo) => {
+    const nova = await dbGerarNota(faturavel, tipo)
+    if (nova) {
+      setNotasDB((l) => [nova, ...l])
+      setFaturaveisDB((l) => l.filter((f) => f.lancamentoId !== faturavel.lancamentoId))
+    }
+    return nova
   }, [])
 
-  // Registrar a assinatura (vinda da página pública do cliente) — cai no painel.
-  // Reaproveita a lógica de assinarContrato (conta a receber + move funil) + guarda a imagem.
-  const registrarAssinatura = useCallback((id, assinaturaDataURL, contrato) => {
-    setState((s) => {
-      const hoje = new Date().toISOString().slice(0, 10)
-      let contasCustom = s.contasCustom
-      let funilOverride = s.funilOverride
-      if (contrato) {
-        const jaTemConta = contasCustom.some((c) => c.contratoOrigem === id)
-        if (!jaTemConta && contrato.valor) {
-          const venc = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
-          contasCustom = [{
-            id: 'conta-contrato-' + id, custom: true, contratoOrigem: id,
-            tipo: 'receber', descricao: 'Contrato — ' + (contrato.clienteNome || ''),
-            valor: contrato.valor, vencimento: venc, cliente: contrato.cliente || '',
-            categoria: 'Pacote', status: 'pendente',
-          }, ...contasCustom]
-        }
-        if (contrato.cliente) {
-          const atual = s.funilOverride[contrato.cliente]
-          if (atual === 'lead' || atual === 'orcamento' || atual === undefined) {
-            funilOverride = { ...s.funilOverride, [contrato.cliente]: 'agendado' }
-          }
-        }
-      }
-      const assinaturaCampos = { status: 'assinado', assinadoEm: hoje, assinatura: assinaturaDataURL }
-      const base = { ...s, contasCustom, funilOverride }
-      if (contrato && contrato.custom) {
-        return { ...base, contratosCustom: s.contratosCustom.map((c) => (c.id === id ? { ...c, ...assinaturaCampos } : c)) }
-      }
-      return { ...base, contratosEdit: { ...s.contratosEdit, [id]: { ...(s.contratosEdit[id] || {}), ...assinaturaCampos } } }
-    })
+  const marcarNotaEmitida = useCallback(async (id, numero) => {
+    const atualizada = await dbMarcarNotaEmitida(id, numero)
+    if (atualizada) setNotasDB((l) => l.map((n) => (n.id === id ? atualizada : n)))
+    return atualizada
   }, [])
+
+  // Desfaz a emissão (volta p/ pendente) — a nota continua existindo.
+  const reverterEmissao = useCallback(async (id) => {
+    const atualizada = await dbReverterEmissao(id)
+    if (atualizada) setNotasDB((l) => l.map((n) => (n.id === id ? atualizada : n)))
+    return atualizada
+  }, [])
+
+  // Cancela (estorno/devolução): atualiza a nota e a origem volta a faturável.
+  const cancelarNota = useCallback(async (id) => {
+    const atualizada = await dbCancelarNota(id)
+    if (atualizada) { setNotasDB((l) => l.map((n) => (n.id === id ? atualizada : n))); recarregarFiscal() }
+    return atualizada
+  }, [recarregarFiscal])
+
+  // Exclui a nota (some de vez) — a origem volta a ficar faturável.
+  const excluirNota = useCallback(async (id) => {
+    const ok = await dbExcluirNota(id)
+    if (ok) { setNotasDB((l) => l.filter((n) => n.id !== id)); recarregarFiscal() }
+    return ok
+  }, [recarregarFiscal])
 
   // --- Workflow (costurado com o funil) -----------------------------
   const WORKFLOW_ORDER = ['briefing', 'ensaio', 'selecao', 'edicao', 'revisao', 'entrega']
@@ -580,16 +691,39 @@ export function AppProvider({ children }) {
     setState((s) => ({ ...s, workflowOverride: { ...s.workflowOverride, [projetoId]: { ...(s.workflowOverride[projetoId] || {}), responsavel: userId } } }))
   }, [])
 
-  // --- Clientes -----------------------------------------------------
-  const adicionarCliente = useCallback((cliente) => {
-    setState((s) => ({ ...s, clientesCustom: [{ ...cliente, id: 'cli-' + Date.now(), custom: true, funil: 'lead', ensaios: [], avatarGrad: 'ph-gradient-2', desde: new Date().toISOString().slice(0, 10) }, ...s.clientesCustom] }))
+  // --- Clientes (banco) ---------------------------------------------
+  // Cria no Supabase e adiciona à lista local (otimista no fim do retorno).
+  const adicionarCliente = useCallback(async (cliente) => {
+    const novo = await criarCliente(cliente)
+    if (novo) setClientesDB((l) => [novo, ...l])
+    return novo
   }, [])
 
-  const editarCliente = useCallback((id, campos, custom) => {
-    setState((s) => {
-      if (custom) return { ...s, clientesCustom: s.clientesCustom.map((c) => (c.id === id ? { ...c, ...campos } : c)) }
-      return { ...s, clientesEdit: { ...s.clientesEdit, [id]: { ...(s.clientesEdit[id] || {}), ...campos } } }
-    })
+  // Edita no banco e atualiza a linha local. (o 3º arg legado é ignorado)
+  const editarCliente = useCallback(async (id, campos) => {
+    const atualizado = await atualizarCliente(id, campos)
+    if (atualizado) setClientesDB((l) => l.map((c) => (c.id === id ? atualizado : c)))
+    return atualizado
+  }, [])
+
+  // --- Ensaios do cliente (banco) -----------------------------------
+  // (nomes "...EnsaioCliente" p/ não colidir com os ensaios do PORTFÓLIO)
+  const adicionarEnsaioCliente = useCallback(async (clienteId, campos) => {
+    const novo = await dbCriarEnsaio({ ...campos, clienteId })
+    if (novo) setEnsaiosDB((l) => [novo, ...l])
+    return novo
+  }, [])
+
+  const editarEnsaioCliente = useCallback(async (id, campos) => {
+    const atualizado = await dbAtualizarEnsaio(id, campos)
+    if (atualizado) setEnsaiosDB((l) => l.map((e) => (e.id === id ? atualizado : e)))
+    return atualizado
+  }, [])
+
+  const excluirEnsaioCliente = useCallback(async (id) => {
+    const ok = await dbRemoverEnsaio(id)
+    if (ok) setEnsaiosDB((l) => l.filter((e) => e.id !== id))
+    return ok
   }, [])
 
   // --- Equipe -------------------------------------------------------
@@ -682,6 +816,11 @@ export function AppProvider({ children }) {
   const value = {
     ...state,
     HORARIOS_PADRAO,
+    clientes,
+    agendamentos: agendamentosDB, // sobrescreve o [] do state pelo do banco
+    getCliente,
+    getClienteNome,
+    getClienteEtapa,
     toggleFoto,
     limparSelecao,
     enviarSelecao,
@@ -692,6 +831,11 @@ export function AppProvider({ children }) {
     registrarNotificacao,
     resetDemo,
     adicionarAgendamento,
+    recarregarCRM,
+    galerias: galeriasDB,
+    mudarStatusGaleria,
+    confirmarAgendamento,
+    cancelarAgendamento,
     toggleDiaBloqueado,
     toggleHorarioBloqueado,
     horariosLivres,
@@ -713,17 +857,28 @@ export function AppProvider({ children }) {
     adicionarConta,
     editarConta,
     excluirConta,
+    contratos: contratosDB,
     assinarContrato,
     atualizarContrato,
     enviarContrato,
-    registrarAssinatura,
     criarContrato,
     excluirContrato,
+    notas: notasDB,
+    faturaveis: faturaveisDB,
+    recarregarFiscal,
+    gerarNota,
+    marcarNotaEmitida,
+    reverterEmissao,
+    cancelarNota,
+    excluirNota,
     avancarEtapa,
     voltarEtapa,
     delegarProjeto,
     adicionarCliente,
     editarCliente,
+    adicionarEnsaioCliente,
+    editarEnsaioCliente,
+    excluirEnsaioCliente,
     adicionarMembro,
     toggleMembroAtivo,
     removerMembro,

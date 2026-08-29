@@ -542,8 +542,8 @@ function CTAEditorial() {
             <Link to="/agendar" className="btn-blush">
               Agendar meu ensaio <ArrowUpRight size={16} />
             </Link>
-            <Link to="/pacotes" className="inline-flex items-center gap-2 text-sm text-cream-100/70 link-underline">
-              <Plus size={15} /> Ver pacotes e preços
+            <Link to="/servicos" className="inline-flex items-center gap-2 text-sm text-cream-100/70 link-underline">
+              <Plus size={15} /> Conheça nossos ensaios
             </Link>
             <span className="ml-auto hidden font-sans text-sm text-cream-100/50 md:block">
               {STUDIO.whatsappDisplay}

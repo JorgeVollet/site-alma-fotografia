@@ -1,23 +1,35 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, Phone, Calendar, Camera, ArrowLeft, Image as ImageIcon, DollarSign, Plus, Pencil, X, Check, Search, MessageCircle } from 'lucide-react'
+import { Mail, Phone, Calendar, Camera, ArrowLeft, Image as ImageIcon, DollarSign, Plus, Pencil, X, Check, Search, MessageCircle, Trash2 } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
-import { CLIENTES, FUNIL_ETAPAS } from '../../data/crm'
+import { FUNIL_ETAPAS } from '../../data/crm'
+import { SERVICOS } from '../../data/studio'
+import { usePacotes } from '../../lib/catalogo'
 import { useApp } from '../../context/AppContext'
+import LeadInfo from './_LeadInfo'
+
+// Status possíveis de um ensaio (sessão)
+const STATUS_ENSAIO = [
+  { id: 'solicitado', nome: 'Solicitado (a orçar)' },
+  { id: 'orcamento', nome: 'Orçamento enviado' },
+  { id: 'agendado', nome: 'Agendado (fechado)' },
+  { id: 'selecionando', nome: 'Cliente escolhendo' },
+  { id: 'enviado', nome: 'Seleção recebida' },
+  { id: 'editando', nome: 'Em edição' },
+  { id: 'pronto', nome: 'Pronto' },
+  { id: 'entregue', nome: 'Entregue' },
+]
 
 export default function Clientes() {
-  const { selecoes, clientesCustom, clientesEdit, funilOverride, adicionarCliente, editarCliente } = useApp()
+  const { clientes, selecoes, adicionarCliente, editarCliente } = useApp()
   const [aberto, setAberto] = useState(null)
   const [editando, setEditando] = useState(null)
   const [novo, setNovo] = useState(false)
   const [busca, setBusca] = useState('')
 
   // Lista: custom + demo (com edições)
-  const todos = [
-    ...clientesCustom.map((c) => ({ ...c, custom: true })),
-    ...CLIENTES.map((c) => ({ ...c, ...(clientesEdit[c.id] || {}), custom: false })),
-  ]
-  const etapaDe = (c) => funilOverride[c.id] || c.funil
+  const todos = clientes
+  const etapaDe = (c) => c.etapa || c.funil
   const filtrados = busca.trim()
     ? todos.filter((c) => (c.nome + ' ' + (c.contato || '') + ' ' + (c.email || '') + ' ' + (c.interesse || '')).toLowerCase().includes(busca.toLowerCase()))
     : todos
@@ -76,13 +88,15 @@ export default function Clientes() {
 
       <AnimatePresence>
         {novo && <EditorCliente novo onClose={() => setNovo(false)} onSalvar={(c) => { adicionarCliente(c); setNovo(false) }} />}
-        {editando && <EditorCliente cliente={editando} onClose={() => setEditando(null)} onSalvar={(campos) => { editarCliente(editando.id, campos, editando.custom); setEditando(null) }} />}
+        {editando && <EditorCliente cliente={editando} onClose={() => setEditando(null)} onSalvar={(campos) => { editarCliente(editando.id, campos); setEditando(null) }} />}
       </AnimatePresence>
     </div>
   )
 }
 
 function Ficha({ cliente, onVoltar, onEditar, selecoes }) {
+  const { adicionarEnsaioCliente, editarEnsaioCliente, excluirEnsaioCliente } = useApp()
+  const [editorEnsaio, setEditorEnsaio] = useState(null) // {novo:true} | ensaio | null
   const gasto = cliente.ensaios.reduce((s, e) => s + (e.valor || 0), 0)
   const wa = 'https://wa.me/55' + (cliente.telefone || '').replace(/\D/g, '')
   return (
@@ -107,37 +121,131 @@ function Ficha({ cliente, onVoltar, onEditar, selecoes }) {
         <Info icon={Mail} label="E-mail" valor={cliente.email} />
         <Info icon={Phone} label="Telefone" valor={cliente.telefone} />
         <Info icon={Calendar} label="Cliente desde" valor={cliente.desde ? new Date(cliente.desde + 'T12:00').toLocaleDateString('pt-BR') : '—'} />
+        <Info icon={Calendar} label="Nascimento" valor={cliente.dataNascimento ? new Date(cliente.dataNascimento + 'T12:00').toLocaleDateString('pt-BR') : '—'} />
         <Info icon={DollarSign} label="Total investido" valor={formatBRL(gasto)} destaque />
       </div>
 
-      <h3 className="mt-8 font-serif text-xl">Histórico de ensaios</h3>
+      {/* Informações do lead + histórico de atualizações — centralizado aqui também */}
+      <div className="mt-6 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
+        <LeadInfo cliente={cliente} mostrarWhats={false} />
+      </div>
+
+      <div className="mt-8 flex items-center justify-between">
+        <h3 className="font-serif text-xl">Histórico de ensaios</h3>
+        <button onClick={() => setEditorEnsaio({ novo: true })} className="btn-light !py-2 text-xs"><Plus size={14} /> Novo ensaio</button>
+      </div>
       {cliente.ensaios.length === 0 ? (
         <p className="mt-3 rounded-xl bg-cocoa-900 p-5 text-sm text-cream-100/50 ring-1 ring-cream-100/10">
-          {cliente.interesse ? <>Lead — interesse em <strong className="text-cream-100/80">{cliente.interesse}</strong>. Nenhum ensaio ainda.</> : 'Nenhum ensaio registrado ainda.'}
+          {cliente.interesse ? <>Lead — interesse em <strong className="text-cream-100/80">{cliente.interesse}</strong>. Nenhum ensaio ainda.</> : 'Nenhum ensaio registrado ainda. Clique em "Novo ensaio" para lançar o primeiro.'}
         </p>
       ) : (
         <div className="mt-3 space-y-3">
           {cliente.ensaios.map((e) => {
             const sel = (selecoes[cliente.galeriaId] || []).length
+            const statusNome = (STATUS_ENSAIO.find((s) => s.id === e.status) || {}).nome || e.status
             return (
               <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
                 <div className="flex items-center gap-3">
                   <Camera size={20} className="text-terracotta-400" />
                   <div>
-                    <p className="font-medium">{e.titulo}</p>
-                    <p className="text-xs text-cream-100/50">{new Date(e.data + 'T12:00').toLocaleDateString('pt-BR')} · {formatBRL(e.valor)}</p>
+                    <p className="flex items-center gap-2 font-medium">
+                      {e.titulo || 'Ensaio'}
+                      {e.origem === 'site' && <span className="rounded-full bg-terracotta-500/20 px-2 py-0.5 text-[10px] font-normal text-terracotta-300">agendamento pelo site</span>}
+                    </p>
+                    <p className="text-xs text-cream-100/50">{e.data ? new Date(e.data + 'T12:00').toLocaleDateString('pt-BR') : 'Sem data'} · {formatBRL(e.valor)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-cream-100/60">
-                  <span className="flex items-center gap-1"><ImageIcon size={13} /> {sel} selecionadas</span>
-                  <span className="rounded-full bg-cream-100/10 px-2.5 py-1">{e.status}</span>
+                  {cliente.galeriaId && <span className="flex items-center gap-1"><ImageIcon size={13} /> {sel} selecionadas</span>}
+                  <span className="rounded-full bg-cream-100/10 px-2.5 py-1">{statusNome}</span>
+                  <button onClick={() => setEditorEnsaio(e)} className="rounded-lg p-1.5 text-cream-100/50 transition hover:bg-cocoa-800 hover:text-cream-100" title="Editar ensaio"><Pencil size={14} /></button>
+                  <button onClick={() => { if (confirm('Excluir este ensaio?')) excluirEnsaioCliente(e.id) }} className="rounded-lg p-1.5 text-cream-100/50 transition hover:bg-cocoa-800 hover:text-red-300" title="Excluir ensaio"><Trash2 size={14} /></button>
                 </div>
               </div>
             )
           })}
         </div>
       )}
+
+      <AnimatePresence>
+        {editorEnsaio && (
+          <EditorEnsaio
+            ensaio={editorEnsaio.novo ? null : editorEnsaio}
+            onClose={() => setEditorEnsaio(null)}
+            onSalvar={async (campos) => {
+              if (editorEnsaio.novo) await adicionarEnsaioCliente(cliente.id, campos)
+              else await editarEnsaioCliente(editorEnsaio.id, campos)
+              setEditorEnsaio(null)
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  )
+}
+
+function EditorEnsaio({ ensaio, onClose, onSalvar }) {
+  const PACOTES = usePacotes()
+  const [tipo, setTipo] = useState(ensaio ? ensaio.tipo || '' : '')
+  const [pacote, setPacote] = useState(ensaio ? ensaio.pacote || '' : '')
+  const [titulo, setTitulo] = useState(ensaio ? ensaio.titulo || '' : '')
+  const [valor, setValor] = useState(ensaio ? ensaio.valor || '' : '')
+  const [data, setData] = useState(ensaio ? ensaio.data || '' : '')
+  const [status, setStatus] = useState(ensaio ? ensaio.status || 'agendado' : 'orcamento')
+  const [observacoes, setObservacoes] = useState(ensaio ? ensaio.observacoes || '' : '')
+  const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
+
+  // Ao escolher um tipo/pacote, sugere título e valor (se ainda vazios).
+  const escolherTipo = (id) => {
+    setTipo(id)
+    const s = SERVICOS.find((x) => x.id === id)
+    if (s && !titulo.trim()) setTitulo('Ensaio ' + s.nome)
+  }
+  const escolherPacote = (slug) => {
+    setPacote(slug)
+    const p = PACOTES.find((x) => x.id === slug)
+    if (p && !valor) setValor(p.preco)
+  }
+
+  const valido = titulo.trim() || tipo || pacote
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
+      <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }} onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-2xl">{ensaio ? 'Editar ensaio' : 'Novo ensaio'}</h3>
+          <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
+        </div>
+        <div className="mt-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-cream-100/80">Tipo de ensaio</span>
+              <select className={inp} value={tipo} onChange={(e) => escolherTipo(e.target.value)}>
+                <option value="">Selecione...</option>
+                {SERVICOS.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </label>
+            <label className="block"><span className="text-sm text-cream-100/80">Pacote</span>
+              <select className={inp} value={pacote} onChange={(e) => escolherPacote(e.target.value)}>
+                <option value="">Selecione...</option>
+                {PACOTES.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </label>
+          </div>
+          <label className="block"><span className="text-sm text-cream-100/80">Título</span><input className={inp} value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Ensaio Newborn · Antônio" /></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-cream-100/80">Valor (R$)</span><input type="number" className={inp} value={valor} onChange={(e) => setValor(e.target.value)} placeholder="890" /></label>
+            <label className="block"><span className="text-sm text-cream-100/80">Data</span><input type="date" className={inp} value={data || ''} onChange={(e) => setData(e.target.value)} /></label>
+          </div>
+          <label className="block"><span className="text-sm text-cream-100/80">Situação</span>
+            <select className={inp} value={status} onChange={(e) => setStatus(e.target.value)}>
+              {STATUS_ENSAIO.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-cream-100/40">Solicitado / Orçamento = ainda negociando (não fecha conta nem agenda). Agendado = fechado.</span>
+          </label>
+          <label className="block"><span className="text-sm text-cream-100/80">Observações</span><textarea className={inp} rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Detalhes do ensaio..." /></label>
+        </div>
+        <button onClick={() => valido && onSalvar({ titulo: titulo.trim(), tipo, pacote, valor: Number(valor) || 0, data: data || null, status, observacoes })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {ensaio ? 'Salvar ensaio' : 'Adicionar ensaio'}</button>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -155,11 +263,12 @@ function EditorCliente({ cliente, novo, onClose, onSalvar }) {
   const [contato, setContato] = useState(cliente ? cliente.contato || '' : '')
   const [email, setEmail] = useState(cliente ? cliente.email || '' : '')
   const [telefone, setTelefone] = useState(cliente ? cliente.telefone || '' : '')
+  const [dataNascimento, setDataNascimento] = useState(cliente ? cliente.dataNascimento || '' : '')
   const [interesse, setInteresse] = useState(cliente ? cliente.interesse || '' : '')
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
   const valido = nome.trim()
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
       <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }} onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-2xl">{novo ? 'Novo cliente' : 'Editar cliente'}</h3>
@@ -172,9 +281,10 @@ function EditorCliente({ cliente, novo, onClose, onSalvar }) {
             <label className="block"><span className="text-sm text-cream-100/80">E-mail</span><input type="email" className={inp} value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             <label className="block"><span className="text-sm text-cream-100/80">Telefone</span><input className={inp} value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(55) 9..." /></label>
           </div>
+          <label className="block"><span className="text-sm text-cream-100/80">Data de nascimento</span><input type="date" className={inp} value={dataNascimento || ''} onChange={(e) => setDataNascimento(e.target.value)} /><span className="mt-1 block text-xs text-cream-100/40">Usada para o alerta de aniversariantes.</span></label>
           <label className="block"><span className="text-sm text-cream-100/80">Interesse</span><input className={inp} value={interesse} onChange={(e) => setInteresse(e.target.value)} placeholder="Ex: Ensaio gestante" /></label>
         </div>
-        <button onClick={() => valido && onSalvar({ nome: nome.trim(), contato, email, telefone, interesse })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {novo ? 'Adicionar cliente' : 'Salvar alterações'}</button>
+        <button onClick={() => valido && onSalvar({ nome: nome.trim(), contato, email, telefone, dataNascimento: dataNascimento || null, interesse })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {novo ? 'Adicionar cliente' : 'Salvar alterações'}</button>
       </motion.div>
     </motion.div>
   )

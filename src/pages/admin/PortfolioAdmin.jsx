@@ -121,7 +121,7 @@ function FormEnsaio({ inicial, onClose, onSalvar }) {
   const valido = form.titulo.trim() && form.categoria
 
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-2xl">{inicial ? 'Editar ensaio' : 'Novo ensaio'}</h3>

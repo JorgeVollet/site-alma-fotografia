@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plano — Painel Alma 100% Interligado</title>
+<style>
+  :root{
+    --cocoa:#686f67; --cocoa-d:#444944; --cocoa-dd:#33372f;
+    --terra:#986e4d; --terra-l:#bb9170; --cream:#f4f4f1; --cream-l:#fbfbfa;
+    --sand:#c9bea8; --sand-l:#ece7da; --clay:#b09b8a; --clay-d:#967f6e;
+    --ink:#33372f; --line:#e0ddd5; --ok:#4f9d76; --warn:#c0792f; --bad:#b5503f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);line-height:1.65;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:'Fraunces','Georgia',serif;font-weight:600;color:var(--cocoa-d);line-height:1.15}
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px}
+  .hero{background:linear-gradient(135deg,var(--cocoa-d),var(--cocoa) 60%,var(--cocoa-dd));color:var(--cream-l);padding:64px 24px 54px;text-align:center}
+  .hero .eyebrow{font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:var(--sand);margin-bottom:18px}
+  .hero h1{color:var(--cream-l);font-size:40px;margin-bottom:16px}
+  .hero p{max-width:600px;margin:0 auto;color:rgba(244,244,241,0.82);font-size:16px;font-weight:300}
+  section{padding:48px 0;border-bottom:1px solid var(--line)}
+  .num{display:inline-block;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--terra);font-weight:600;margin-bottom:10px}
+  h2.sec{font-size:30px;margin-bottom:10px}
+  .lead{color:var(--clay-d);font-size:16px;margin-bottom:24px;max-width:680px}
+  p{margin-bottom:14px}
+  .fase{background:var(--cream-l);border:1px solid var(--line);border-radius:18px;padding:28px;margin-bottom:22px;position:relative;overflow:hidden}
+  .fase::before{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--terra)}
+  .fase-head{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .fase-badge{background:var(--cocoa-d);color:#fff;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-family:'Fraunces',serif;font-size:20px;font-weight:600;flex-shrink:0}
+  .fase-head h3{font-size:22px}
+  .fase-head .tag{font-size:12px;color:var(--terra);font-weight:600;text-transform:uppercase;letter-spacing:0.05em}
+  .fase h4{font-size:15px;margin:18px 0 8px;color:var(--cocoa-d)}
+  ul{list-style:none;margin:8px 0 8px}
+  ul li{font-size:14.5px;padding:5px 0 5px 24px;position:relative;color:var(--cocoa)}
+  ul li::before{content:'✦';position:absolute;left:0;color:var(--terra-l);font-size:12px;top:8px}
+  .teste{background:rgba(79,157,118,0.1);border:1px solid rgba(79,157,118,0.3);border-radius:12px;padding:14px 18px;margin-top:16px;font-size:14px}
+  .teste strong{color:var(--ok)}
+  .hoje-depois{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .hd{border-radius:12px;padding:14px 18px;font-size:13.5px}
+  .hoje{background:rgba(181,80,63,0.08);border:1px solid rgba(181,80,63,0.22)}
+  .hoje b{color:var(--bad)}
+  .depois{background:rgba(79,157,118,0.08);border:1px solid rgba(79,157,118,0.25)}
+  .depois b{color:var(--ok)}
+  .ja{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:6px 0}
+  .ja li::before{content:'✓';color:var(--ok)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{font-family:Inter;font-weight:600;color:var(--cocoa-d);font-size:12px;text-transform:uppercase;letter-spacing:0.04em;background:var(--sand-l)}
+  td{color:var(--cocoa)}
+  .risco{display:flex;gap:10px;align-items:flex-start;padding:8px 0;font-size:14px}
+  .pill{font-size:11px;font-weight:600;padding:2px 9px;border-radius:12px;white-space:nowrap;margin-top:2px}
+  .pill.b{background:rgba(79,157,118,0.15);color:var(--ok)}
+  .pill.m{background:rgba(192,121,47,0.15);color:var(--warn)}
+  .destaque{background:linear-gradient(135deg,rgba(152,110,77,0.1),rgba(201,190,168,0.14));border:1px solid rgba(152,110,77,0.25);border-radius:16px;padding:22px 26px;margin:22px 0}
+  .destaque strong{color:var(--terra)}
+  footer{background:var(--cocoa-dd);color:rgba(244,244,241,0.85);padding:44px 24px;text-align:center}
+  footer h3{color:var(--cream-l);font-size:24px;margin-bottom:10px}
+  footer p{max-width:520px;margin:0 auto;font-size:15px;font-weight:300}
+  .sign{margin-top:20px;font-size:13px;color:var(--sand)}
+  @media(max-width:600px){.hero h1{font-size:30px}.hoje-depois{grid-template-columns:1fr}h2.sec{font-size:25px}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <p class="eyebrow">Plano de evolução · Painel administrativo</p>
+  <h1>Deixar o painel da Alma 100% interligado</h1>
+  <p>Um plano em 4 fases para transformar o painel num organismo único, onde cada ação reverbera nos módulos certos — automaticamente. Para ler, lapidar e aprovar antes de implementar.</p>
+</div>
+<div class="wrap">
+
+<section>
+  <span class="num">O diagnóstico</span>
+  <h2 class="sec">Onde estamos hoje</h2>
+  <p class="lead">Fiz uma auditoria profunda de todo o painel — li cada módulo e mapeei como eles se conectam. A boa notícia: a fundação está certa. A má: ela foi construída em torno de um cliente só.</p>
+
+  <p>O painel já é <strong>quase</strong> um organismo completo, mas tem três pontos que travam o dia a dia:</p>
+
+  <h4 style="margin-top:20px">1. Dois mundos de clientes que não se falam</h4>
+  <p style="font-size:14.5px;color:var(--cocoa)">Quase todos os módulos leem uma lista fixa de clientes de demonstração. Quando você cria um cliente novo, ele vira um "fantasma": não aparece no funil, nem na agenda, nem nos contratos. Só existe na tela de Clientes.</p>
+
+  <h4>2. As automações estão "presas" no cliente de demonstração</h4>
+  <p style="font-size:14.5px;color:var(--cocoa)">Várias mágicas (liberar fotos, mover no funil) só funcionam para o ensaio ao vivo da demonstração. Para qualquer outro cliente, os botões são decorativos — não disparam as conexões.</p>
+
+  <h4>3. O site público não alimenta o painel</h4>
+  <p style="font-size:14.5px;color:var(--cocoa)">Quando alguém agenda pelo site, a reserva nasce solta. Não cria cliente, nem galeria, nem projeto. O fotógrafo precisa refazer tudo na mão no painel.</p>
+
+  <div class="ja">
+    <h4 style="margin-top:0">O que JÁ funciona (a base que vamos aproveitar):</h4>
+    <ul class="ja">
+      <li>Contrato assinado → gera conta a receber + move o cliente no funil</li>
+      <li>Quitar uma conta → cria o lançamento no financeiro automaticamente</li>
+      <li>Workflow chega em "entrega" → o cliente vai pra "entregue" no funil</li>
+      <li>Fotos favoritas entregues → viram ensaio no portfólio</li>
+      <li>Agendamento → vira lançamento "Reserva" no financeiro</li>
+    </ul>
+  </div>
+  <p style="font-size:14px;color:var(--clay-d)">Ou seja: não começamos do zero. As costuras certas existem — só precisam ser <strong>generalizadas</strong> (valer pra todos) e <strong>estendidas</strong> (conectar o site ao painel).</p>
+</section>
+
+<section>
+  <span class="num">A estratégia</span>
+  <h2 class="sec">4 fases, da fundação ao topo</h2>
+  <p class="lead">Cada fase é testável sozinha e não quebra o que já funciona. Construímos a base primeiro (sem ela, nada novo aparece), depois subimos. Você aprova e testa cada uma antes de seguir.</p>
+</section>
+
+<section>
+  <!-- FASE 0 -->
+  <div class="fase">
+    <div class="fase-head">
+      <div class="fase-badge">0</div>
+      <div>
+        <span class="tag">Fundação · a base de tudo</span>
+        <h3>Cliente unificado</h3>
+      </div>
+    </div>
+    <p style="font-size:14.5px">Juntar num só lugar todos os clientes — os de demonstração, os que você cria na mão, e os que vierem do site. Hoje eles vivem separados; vamos fazer todos passarem a existir no sistema inteiro.</p>
+    <div class="hoje-depois">
+      <div class="hd hoje"><b>Hoje:</b> cliente novo não aparece no funil, agenda, contratos. É um fantasma.</div>
+      <div class="hd depois"><b>Depois:</b> todo cliente percorre o sistema — funil, agenda, financeiro, tudo.</div>
+    </div>
+    <h4>Como faço (sem quebrar nada)</h4>
+    <ul>
+      <li>Crio uma "lista mestre de clientes" no cérebro do sistema, que junta demo + criados + agendados, mantendo a ordem que cada tela já espera.</li>
+      <li>Cada módulo passa a ler dessa lista mestre, em vez da lista fixa de demonstração. É uma troca pequena e cirúrgica por arquivo.</li>
+    </ul>
+    <div class="teste"><strong>✓ Como testar:</strong> criar um cliente novo na tela de Clientes → ele aparece como card no Funil de vendas. (Hoje não aparece.)</div>
+    <p style="font-size:13px;color:var(--clay-d);margin-top:12px"><span class="pill b">Risco baixo</span> &nbsp;É uma mudança que só adiciona — não remove nada. O cliente de demonstração continua intacto.</p>
+  </div>
+
+  <!-- FASE 1 -->
+  <div class="fase">
+    <div class="fase-head">
+      <div class="fase-badge">1</div>
+      <div>
+        <span class="tag">Generalizar · vale para todos</span>
+        <h3>Tirar a "Sphor" do código</h3>
+      </div>
+    </div>
+    <p style="font-size:14.5px">Fazer as automações funcionarem para qualquer cliente, não só o de demonstração. As mágicas que já existem passam a valer para o estúdio inteiro.</p>
+    <div class="hoje-depois">
+      <div class="hd hoje"><b>Hoje:</b> liberar fotos / mover no funil só funciona pro cliente ao vivo.</div>
+      <div class="hd depois"><b>Depois:</b> iniciar edição move pra "produção"; entregar tira do funil — qualquer cliente.</div>
+    </div>
+    <h4>Novas costuras que entram aqui</h4>
+    <ul>
+      <li><strong>Iniciar edição</strong> → o cliente avança sozinho para "Produção" no funil.</li>
+      <li><strong>Liberar download</strong> → o cliente vai para "Entregue" no funil + notificação (para qualquer cliente, não só o demo).</li>
+    </ul>
+    <div class="teste"><strong>✓ Como testar:</strong> entregar o ensaio de um cliente qualquer → ele se move no funil automaticamente, sem você arrastar na mão.</div>
+    <p style="font-size:13px;color:var(--clay-d);margin-top:12px"><span class="pill m">Risco médio-baixo</span> &nbsp;Depende da Fase 0 estar pronta. Decisão a tomar: status detalhado do ensaio (selecionando→editando→pronto) por cliente, ou só o movimento de funil? (recomendo começar pelo funil)</p>
+  </div>
+</section>
+
+<section>
+  <!-- FASE 2 -->
+  <div class="fase">
+    <div class="fase-head">
+      <div class="fase-badge">2</div>
+      <div>
+        <span class="tag">Conectar · o maior valor no dia a dia</span>
+        <h3>Site → Painel automático</h3>
+      </div>
+    </div>
+    <p style="font-size:14.5px">Quando alguém agenda pelo site, o painel monta tudo sozinho. Essa é a costura que mais economiza tempo do fotógrafo — acaba o retrabalho manual.</p>
+    <div class="hoje-depois">
+      <div class="hd hoje"><b>Hoje:</b> reserva do site nasce solta. O fotógrafo cria cliente e galeria na mão.</div>
+      <div class="hd depois"><b>Depois:</b> reserva monta o cliente, o funil e a cobrança — tudo pronto.</div>
+    </div>
+    <h4>O que a reserva passa a criar sozinha</h4>
+    <ul>
+      <li>Um <strong>cliente novo</strong> no CRM, já posicionado em "Agendado" no funil.</li>
+      <li>Uma <strong>conta a receber</strong> do valor restante (total menos a reserva paga).</li>
+      <li>A <strong>reserva</strong> já cai na Agenda e no Financeiro (isso já funciona).</li>
+      <li>(Opcional) Um contrato em rascunho e uma tarefa "Confirmar ensaio".</li>
+    </ul>
+    <div class="teste"><strong>✓ Como testar:</strong> fazer uma reserva de teste no site → o cliente aparece prontinho no painel (no funil, com a cobrança do saldo já lançada).</div>
+    <p style="font-size:13px;color:var(--clay-d);margin-top:12px"><span class="pill m">Risco médio</span> &nbsp;O cuidado aqui é não duplicar registros se o cliente voltar passos no agendamento. Uso a mesma proteção que já existe em outras costuras. Depende da Fase 0.</p>
+  </div>
+
+  <!-- FASE 3 -->
+  <div class="fase">
+    <div class="fase-head">
+      <div class="fase-badge">3</div>
+      <div>
+        <span class="tag">Faturar · fecha o ciclo</span>
+        <h3>Notas Fiscais ↔ Financeiro</h3>
+      </div>
+    </div>
+    <p style="font-size:14.5px">Conectar a tela de Notas Fiscais aos pagamentos reais. Em vez de uma tela isolada, ela passa a saber o que já foi recebido e está pronto para virar nota.</p>
+    <div class="hoje-depois">
+      <div class="hd hoje"><b>Hoje:</b> a tela de notas é uma vitrine isolada, não conversa com contas.</div>
+      <div class="hd depois"><b>Depois:</b> conta recebida → aparece em "pronto para emitir nota", a 1 clique.</div>
+    </div>
+    <h4>A costura</h4>
+    <ul>
+      <li>O sistema mostra os pagamentos já recebidos que ainda não têm nota, num bloco "Pronto para emitir".</li>
+      <li>Um clique gera a nota (vinculada àquele pagamento), sem redigitar nada.</li>
+    </ul>
+    <div class="teste"><strong>✓ Como testar:</strong> marcar uma conta como recebida → ela aparece na fila de "pronto para emitir nota".</div>
+    <p style="font-size:13px;color:var(--clay-d);margin-top:12px"><span class="pill b">Risco baixo</span> &nbsp;A emissão fiscal de verdade (que fala com a prefeitura) entra junto com o backend / Focus NFe. Esta fase prepara a conexão; a emissão real vem depois.</p>
+  </div>
+</section>
+
+<section>
+  <span class="num">Visão geral</span>
+  <h2 class="sec">As costuras, por fluxo de negócio</h2>
+  <p class="lead">O sistema inteiro organizado em três grandes fluxos. ✓ = já funciona · ✦ = entra com este plano.</p>
+
+  <h4 style="margin-top:8px">💼 Fluxo de venda (do primeiro contato ao fechamento)</h4>
+  <table>
+    <tr><th>Quando acontece</th><th>O que dispara</th><th>Status</th></tr>
+    <tr><td>Reserva no site</td><td>Cria cliente + funil "Agendado" + conta a receber</td><td>✦ Fase 2</td></tr>
+    <tr><td>Contrato assinado</td><td>Gera conta a receber + move no funil</td><td>✓ Já funciona</td></tr>
+    <tr><td>Arrastar no funil</td><td>Atualiza a etapa do cliente</td><td>✓ Já funciona</td></tr>
+  </table>
+
+  <h4>🎬 Fluxo de produção (do ensaio à entrega)</h4>
+  <table>
+    <tr><th>Quando acontece</th><th>O que dispara</th><th>Status</th></tr>
+    <tr><td>Cliente envia seleção</td><td>Move no funil para "Produção"</td><td>✦ Fase 1</td></tr>
+    <tr><td>Iniciar edição</td><td>Atualiza status + notifica</td><td>✦ Fase 1 (generaliza)</td></tr>
+    <tr><td>Liberar download</td><td>Entrega + tira do funil + notifica</td><td>✦ Fase 1 (generaliza)</td></tr>
+    <tr><td>Favoritas entregues</td><td>Viram ensaio no portfólio</td><td>✓ Já funciona</td></tr>
+  </table>
+
+  <h4>💰 Fluxo financeiro (o caixa)</h4>
+  <table>
+    <tr><th>Quando acontece</th><th>O que dispara</th><th>Status</th></tr>
+    <tr><td>Conta recebida/paga</td><td>Cria lançamento no financeiro</td><td>✓ Já funciona</td></tr>
+    <tr><td>Reserva do site</td><td>Lançamento + vínculo ao cliente certo</td><td>✦ Fase 2 melhora</td></tr>
+    <tr><td>Lançamentos</td><td>Alimentam Fluxo de Caixa e DRE</td><td>✓ Já funciona</td></tr>
+    <tr><td>Pagamento recebido</td><td>Vira nota fiscal faturável</td><td>✦ Fase 3</td></tr>
+  </table>
+</section>
+
+<section>
+  <span class="num">Foco</span>
+  <h2 class="sec">O que NÃO vamos fazer agora (de propósito)</h2>
+  <p class="lead">Pra entregar rápido e sem risco, deixo de fora coisas que ninguém pediu ou que dependem do backend. Tudo isso pode entrar depois, se fizer sentido.</p>
+  <ul>
+    <li>Emissão fiscal real (XML/PDF na prefeitura) — entra com o backend / Focus NFe.</li>
+    <li>Pagamento real com PIX/cartão de verdade — hoje é simulado; entra com gateway no backend.</li>
+    <li>Lembretes automáticos por prazo e datas que se cruzam entre agenda e workflow.</li>
+    <li>Vários ensaios em paralelo por cliente com status independente — só se você sentir necessidade.</li>
+  </ul>
+  <div class="destaque">
+    <strong>Por que essa disciplina importa:</strong> cada coisa a mais é mais risco e mais tempo. Prefiro entregar o painel <strong>realmente interligado e sólido</strong> com o essencial, do que cheio de funções pela metade. Se faltar algo importante pra Alma, a gente adiciona — é só apontar.
+  </div>
+</section>
+
+<section style="border-bottom:none">
+  <span class="num">Próximo passo</span>
+  <h2 class="sec">Como seguimos</h2>
+  <p class="lead">Este documento é pra você ler com calma e me dizer o que ajustar. Quando estiver do seu jeito, eu começo pela Fase 0.</p>
+  <p style="font-size:14.5px">Sugestão de caminho:</p>
+  <ul>
+    <li><strong>1.</strong> Você lê e marca o que quer mudar, tirar ou adicionar.</li>
+    <li><strong>2.</strong> A gente lapida o plano juntos até ficar redondo.</li>
+    <li><strong>3.</strong> Eu implemento <strong>uma fase por vez</strong>, e você testa cada uma (com o teste descrito em cada fase) antes de seguir.</li>
+    <li><strong>4.</strong> Ao fim, o painel inteiro funcionando como organismo único — pronto pra mostrar à Alma.</li>
+  </ul>
+  <div class="destaque">
+    <strong>Me conta:</strong> alguma costura que você imaginou e não está aqui? Algum módulo que a Alma usa mais e merece atenção especial? Alguma ordem diferente das fases? É só apontar que eu ajusto o plano.
+  </div>
+</section>
+</div>
+
+<footer>
+  <h3>Painel Alma · 100% interligado</h3>
+  <p>Um organismo único, onde cada ação reverbera nos lugares certos — automaticamente.</p>
+  <p class="sign">Plano preparado por JV Web Studio · para revisão e aprovação</p>
+</footer>
+</body>
+</html>

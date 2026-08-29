@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitetura SaaS · Alma Fotografia + Supabase</title>
+<style>
+  :root{
+    --cocoa:#686f67;--cocoa-d:#444944;--cocoa-dd:#33372f;--terra:#986e4d;--terra-l:#bb9170;
+    --cream:#f4f4f1;--cream-l:#fbfbfa;--sand:#c9bea8;--sand-l:#ece7da;--clay:#b09b8a;
+    --clay-d:#967f6e;--ink:#33372f;--line:#e0ddd5;--ok:#4f9d76;--code-bg:#2c2c2a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,'Segoe UI',sans-serif;color:var(--ink);background:var(--cream);line-height:1.65;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:'Fraunces','Georgia',serif;font-weight:600;color:var(--cocoa-d);line-height:1.15}
+  .wrap{max-width:900px;margin:0 auto;padding:0 24px}
+  .hero{background:linear-gradient(135deg,var(--cocoa-d),var(--cocoa) 60%,var(--cocoa-dd));color:var(--cream-l);padding:64px 24px 54px;text-align:center}
+  .hero .eyebrow{font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:var(--sand);margin-bottom:18px}
+  .hero h1{color:var(--cream-l);font-size:38px;margin-bottom:16px}
+  .hero p{max-width:640px;margin:0 auto;color:rgba(244,244,241,0.82);font-size:16px;font-weight:300}
+  .hero .meta{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .hero .meta span{background:rgba(244,244,241,0.1);border:1px solid rgba(244,244,241,0.2);border-radius:30px;padding:6px 15px;font-size:12.5px;color:rgba(244,244,241,0.85)}
+  section{padding:46px 0;border-bottom:1px solid var(--line)}
+  .num{display:inline-block;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--terra);font-weight:600;margin-bottom:10px}
+  h2.sec{font-size:29px;margin-bottom:10px}
+  .lead{color:var(--clay-d);font-size:16px;margin-bottom:22px;max-width:700px}
+  p{margin-bottom:13px}
+  ul{list-style:none;margin:8px 0}
+  ul li{font-size:14.5px;padding:5px 0 5px 24px;position:relative;color:var(--cocoa)}
+  ul li::before{content:'✦';position:absolute;left:0;color:var(--terra-l);font-size:12px;top:8px}
+  ul.check li::before{content:'✓';color:var(--ok)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:Inter;font-weight:600;color:var(--cocoa-d);font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;background:var(--sand-l)}
+  td{color:var(--cocoa)}
+  code{font-family:'SF Mono',Monaco,monospace;font-size:12.5px;background:var(--sand-l);padding:1px 6px;border-radius:5px;color:var(--terra)}
+  pre{background:var(--code-bg);color:#e8e4dc;border-radius:12px;padding:18px 20px;overflow-x:auto;font-size:12.5px;line-height:1.55;margin:14px 0}
+  pre code{background:none;padding:0;color:#e8e4dc;font-size:12.5px}
+  .bloco{background:var(--cream-l);border:1px solid var(--line);border-radius:16px;padding:22px 26px;margin-bottom:16px;position:relative}
+  .bloco::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--terra);border-radius:16px 0 0 16px}
+  .bloco-head{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .bloco-badge{background:var(--cocoa-d);color:#fff;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex-shrink:0}
+  .bloco-head h3{font-size:19px}
+  .teste{background:rgba(79,157,118,0.1);border:1px solid rgba(79,157,118,0.3);border-radius:10px;padding:11px 16px;margin-top:12px;font-size:13.5px}
+  .teste strong{color:var(--ok)}
+  .destaque{background:linear-gradient(135deg,rgba(152,110,77,0.1),rgba(201,190,168,0.14));border:1px solid rgba(152,110,77,0.25);border-radius:16px;padding:22px 26px;margin:20px 0}
+  .destaque strong{color:var(--terra)}
+  .feat{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line)}
+  .feat .n{width:30px;height:30px;border-radius:50%;background:var(--terra);color:#fff;display:grid;place-items:center;font-weight:600;font-size:14px}
+  footer{background:var(--cocoa-dd);color:rgba(244,244,241,0.85);padding:42px 24px;text-align:center}
+  footer h3{color:var(--cream-l);font-size:23px;margin-bottom:10px}
+  footer p{max-width:540px;margin:0 auto;font-size:14.5px;font-weight:300}
+  .sign{margin-top:18px;font-size:12.5px;color:var(--sand)}
+  @media(max-width:600px){.hero h1{font-size:28px}h2.sec{font-size:24px}.feat{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hero">
+  <p class="eyebrow">Arquitetura técnica · Backend real</p>
+  <h1>Alma Fotografia como SaaS</h1>
+  <p>A bíblia do projeto: como transformar o painel num sistema de verdade, com banco de dados, login real e armazenamento na nuvem — pronto para a parceria Jorge + Maurício e para crescer.</p>
+  <div class="meta">
+    <span>Supabase (Postgres + Auth + Storage)</span>
+    <span>30+ tabelas</span>
+    <span>11 blocos de execução</span>
+    <span>6 features novas</span>
+  </div>
+</div>
+<div class="wrap">
+
+<section>
+  <span class="num">A virada</span>
+  <h2 class="sec">De demonstração para sistema real</h2>
+  <p class="lead">Hoje o painel é lindo, mas funciona com dados de "faz de conta" guardados no navegador. Agora vamos construir o backend de verdade: um banco de dados na nuvem, login real da equipe, e armazenamento das fotos. Tudo que já existe e tudo que vem por aí passa a funcionar para valer.</p>
+
+  <div class="destaque">
+    <strong>O princípio que guia tudo:</strong> trocar a fonte dos dados, não reescrever as telas. Os módulos que você já viu (Funil, Seleções, Clientes…) continuam exatamente iguais por fora — só que por baixo deixam de ler o "faz de conta" e passam a ler o banco real.
+  </div>
+
+  <h3 style="margin-top:26px;font-size:19px">3 decisões que fazem essa arquitetura valer ouro</h3>
+
+  <div class="feat"><div class="n">1</div><div>
+    <strong>Pensado como produto que se clona.</strong> Cada estúdio tem o <strong>seu próprio banco de dados (Supabase)</strong>, totalmente isolado. A Alma tem o dela; o próximo cliente terá outro projeto separado. Para vender para outro fotógrafo, você só <strong>clona a estrutura</strong> num banco novo e vazio — cada cliente paga o próprio Supabase, e você não carrega o custo de todos num lugar só. Isolamento total: cada estúdio é uma ilha.
+  </div></div>
+
+  <div class="feat"><div class="n">2</div><div>
+    <strong>O código fica muito mais limpo.</strong> Toda aquela complexidade de "dados de demonstração que não podiam mudar" simplesmente desaparece. Com banco real, editar um cliente é só… editar o cliente. É a maior simplificação do projeto.
+  </div></div>
+
+  <div class="feat"><div class="n">3</div><div>
+    <strong>Segurança de verdade.</strong> Cada estúdio só enxerga os seus próprios dados, garantido pelo banco (não por confiança no navegador). As chaves secretas nunca saem do servidor. É o padrão de um sistema profissional.
+  </div></div>
+</section>
+
+<section>
+  <span class="num">As demandas do Maurício</span>
+  <h2 class="sec">As 6 melhorias, já contempladas</h2>
+  <p class="lead">Tudo que você pontuou com o dono da Alma já está desenhado dentro da arquitetura — cada uma com seu lugar no banco e na ordem de construção.</p>
+
+  <div class="feat"><div class="n">1</div><div>
+    <strong>Prazos por etapa de produção.</strong> Cada ensaio ganha sub-etapas (edição → tratamento de cor → retoque de pele), cada uma com seu próprio prazo, responsável e lembrete. Acaba o "prazo único de 15 dias" sem controle do que acontece dentro dele.
+  </div></div>
+  <div class="feat"><div class="n">2</div><div>
+    <strong>Valor de foto extra por cliente.</strong> Na hora de enviar as fotos pra seleção, o estúdio define o valor da foto extra <em>daquele</em> ensaio (porque negociam caso a caso). Se não definir, usa o valor padrão do pacote.
+  </div></div>
+  <div class="feat"><div class="n">3</div><div>
+    <strong>Kanban estilo Trello.</strong> Um quadro de produção com colunas que o estúdio cria e renomeia, e cards arrastáveis — substituindo o Trello que usam hoje, dentro do próprio sistema.
+  </div></div>
+  <div class="feat"><div class="n">4</div><div>
+    <strong>Seleção de fotos mais rica.</strong> O cliente seleciona clicando na própria foto (não só no coração), amplia com um toque, e pode deixar uma <strong>observação por foto</strong> ("arrumar o cabelo", "tirar a mancha") que o editor lê na hora de tratar.
+  </div></div>
+  <div class="feat"><div class="n">5</div><div>
+    <strong>Aniversários.</strong> Data de nascimento no cadastro + alerta dos aniversariantes do mês na tela inicial (ordenados pelo mais próximo) + relatório completo. Acaba a venda perdida por não saber que o cliente fazia aniversário. (Mensagem automática via WhatsApp com modelos prontos fica para a fase seguinte.)
+  </div></div>
+  <div class="feat"><div class="n">6</div><div>
+    <strong>Mais relatórios.</strong> Hoje só existe o do funil. Entram relatórios de aniversariantes, financeiro e produção — todos com filtros.
+  </div></div>
+</section>
+
+<section>
+  <span class="num">O banco de dados</span>
+  <h2 class="sec">As tabelas (o mapa de tudo)</h2>
+  <p class="lead">Mais de 30 tabelas, cada uma derivada de algo que o sistema já usa hoje. Aqui o resumo agrupado por área — o SQL completo de cada uma está no arquivo técnico que acompanha este documento.</p>
+
+  <table>
+    <tr><th>Área</th><th>Tabelas</th></tr>
+    <tr><td><strong>Núcleo & acesso</strong></td><td>studios, profiles (usuários da equipe), permissões</td></tr>
+    <tr><td><strong>Catálogo</strong></td><td>serviços, pacotes, produtos</td></tr>
+    <tr><td><strong>Clientes & CRM</strong></td><td>clientes (com data de nascimento), funil_etapas, leads, orçamentos (+itens)</td></tr>
+    <tr><td><strong>Ensaios & produção</strong></td><td>ensaios (com valor de foto extra próprio), agendamentos, etapas_producao (edição/cor/retoque), template de etapas</td></tr>
+    <tr><td><strong>Galerias & fotos</strong></td><td>galerias, fotos (3 versões), seleções, observações_foto</td></tr>
+    <tr><td><strong>Kanban</strong></td><td>kanban_colunas, kanban_cards</td></tr>
+    <tr><td><strong>Financeiro</strong></td><td>categorias, lançamentos, contas a pagar/receber</td></tr>
+    <tr><td><strong>Contratos & fiscal</strong></td><td>modelos_contrato, contratos, notas_fiscais</td></tr>
+    <tr><td><strong>Operação</strong></td><td>tarefas, disponibilidade, config_estudio, notificações, mensagens_preset</td></tr>
+    <tr><td><strong>Portfólio & álbuns</strong></td><td>portfolio_ensaios, portfolio_fotos, álbuns (diagramador)</td></tr>
+  </table>
+
+  <p style="margin-top:18px;font-size:14.5px">Um exemplo de como uma tabela é definida — a de clientes, já com a data de nascimento que o Maurício pediu:</p>
+  <pre><code>create table clientes (
+  id              uuid primary key default gen_random_uuid(),
+  nome            text not null,
+  contato         text,
+  email           text,
+  telefone        text,
+  data_nascimento date,        -- aniversariantes
+  funil_etapa_id  uuid references funil_etapas(id),
+  desde           date default current_date,
+  created_at      timestamptz default now()
+);</code></pre>
+</section>
+
+<section>
+  <span class="num">Segurança & acesso</span>
+  <h2 class="sec">Login real e proteção dos dados</h2>
+  <p class="lead">Como a equipe entra, e como o banco de cada estúdio fica protegido — equipe de um lado, cliente final do outro.</p>
+
+  <h4 style="font-size:17px;margin-bottom:6px">Login da equipe</h4>
+  <p style="font-size:14.5px">O Maurício, a Aline e a equipe entram no painel com e-mail e senha de verdade (Supabase Auth), substituindo o "admin123" de demonstração. Cada pessoa tem um papel (admin, fotógrafo, editor, atendimento) que define o que pode ver e fazer.</p>
+
+  <h4 style="font-size:17px;margin:16px 0 6px">Cada estúdio é uma ilha</h4>
+  <p style="font-size:14.5px">Como cada estúdio tem o seu próprio banco de dados, o isolamento é <strong>físico e total</strong> — não há como um estúdio acessar dados de outro, porque eles são bancos completamente separados. Dentro do banco de cada estúdio, uma trava de segurança (RLS) ainda protege o que é interno da equipe do que o cliente final pode acessar.</p>
+
+  <h4 style="font-size:17px;margin:16px 0 6px">O acesso do cliente final</h4>
+  <p style="font-size:14.5px">O cliente da Alma <strong>não precisa criar conta</strong>. Ele entra na galeria dele com o código de acesso + senha (como já é hoje), e o sistema valida isso no servidor com segurança. Ele vê só as fotos dele, seleciona, deixa observações e baixa as finais quando liberadas. As fotos originais em alta nunca ficam expostas.</p>
+
+  <div class="destaque">
+    <strong>A regra de ouro:</strong> a chave secreta do sistema nunca vai para o site (que qualquer um pode inspecionar). Ela fica só no servidor. O que protege os dados de verdade é a trava do banco. Por isso, antes de colocar qualquer dado real, toda tabela é blindada.
+  </div>
+</section>
+
+<section>
+  <span class="num">O plano de execução</span>
+  <h2 class="sec">11 blocos, do banco ao último relatório</h2>
+  <p class="lead">Construímos por blocos, do alicerce ao topo. Cada bloco é testável sozinho antes de seguir — e começamos com o sistema vazio, para você criar tudo do zero e testar de verdade, como pediu.</p>
+
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">0</div><h3>Fundação — banco + login</h3></div>
+    <p style="font-size:14px">Criar o projeto Supabase, as tabelas de base, e o login real do Maurício.</p>
+    <div class="teste"><strong>✓ Teste:</strong> o Maurício entra no painel com e-mail e senha de verdade.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">1</div><h3>Catálogo</h3></div>
+    <p style="font-size:14px">Serviços, pacotes e produtos da Alma (com os valores reais: Pocket 600, Memórias 890, Experiência 1690).</p>
+    <div class="teste"><strong>✓ Teste:</strong> a página de pacotes lê do banco.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">2</div><h3>Clientes + Funil</h3></div>
+    <p style="font-size:14px">Cadastro completo (com data de nascimento), funil de vendas, leads e orçamentos.</p>
+    <div class="teste"><strong>✓ Teste:</strong> criar cliente, arrastar no funil, e continua lá depois de recarregar.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">3</div><h3>Ensaios + Agenda</h3></div>
+    <p style="font-size:14px">Ensaios, agendamentos e a disponibilidade da agenda (com o intervalo entre ensaios).</p>
+    <div class="teste"><strong>✓ Teste:</strong> uma reserva pelo site cai no banco e aparece na agenda.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">4</div><h3>Galerias + Fotos (nuvem)</h3></div>
+    <p style="font-size:14px">Upload real das fotos, com geração da versão com marca d'água para a seleção.</p>
+    <div class="teste"><strong>✓ Teste:</strong> subir fotos de um ensaio e vê-las protegidas na galeria.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">5</div><h3>Seleção rica do cliente ✦</h3></div>
+    <p style="font-size:14px">Cliente seleciona clicando na foto, amplia, e deixa observação por foto. O admin vê tudo. <em>(Features 4 e 2)</em></p>
+    <div class="teste"><strong>✓ Teste:</strong> cliente entra, seleciona, escreve "tirar mancha", e o estúdio lê.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">6</div><h3>Produção por etapas + Kanban ✦</h3></div>
+    <p style="font-size:14px">Sub-etapas (edição/cor/retoque) com prazo e responsável, e o quadro kanban arrastável. <em>(Features 1 e 3)</em></p>
+    <div class="teste"><strong>✓ Teste:</strong> mover um card no kanban e definir o responsável da etapa de cor.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">7</div><h3>Financeiro</h3></div>
+    <p style="font-size:14px">Lançamentos, contas a pagar/receber, e as conexões automáticas (quitar conta gera lançamento).</p>
+    <div class="teste"><strong>✓ Teste:</strong> quitar uma conta cria o lançamento no financeiro sozinho.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">8</div><h3>Contratos + Notas fiscais</h3></div>
+    <p style="font-size:14px">Modelos, envio, assinatura, e a base das notas (a emissão real conecta na Focus NFe depois).</p>
+    <div class="teste"><strong>✓ Teste:</strong> enviar um contrato e o cliente assinar online.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">9</div><h3>Tarefas, Portfólio, Álbuns</h3></div>
+    <p style="font-size:14px">Tarefas da equipe, ensaios do portfólio público e o diagramador de álbuns.</p>
+    <div class="teste"><strong>✓ Teste:</strong> montar um álbum e ele continuar salvo depois.</div>
+  </div>
+  <div class="bloco"><div class="bloco-head"><div class="bloco-badge">10</div><h3>Relatórios + Aniversariantes ✦</h3></div>
+    <p style="font-size:14px">Alerta de aniversariantes na tela inicial + relatórios variados com filtros + modelos de mensagem. <em>(Features 5 e 6)</em></p>
+    <div class="teste"><strong>✓ Teste:</strong> o relatório de aniversariantes filtra por mês.</div>
+  </div>
+</section>
+
+<section>
+  <span class="num">Onde cada coisa acontece</span>
+  <h2 class="sec">Aqui comigo × no Claude Code</h2>
+  <p class="lead">Backend de verdade pede o terminal para algumas coisas (rodar o banco, configurar chaves, testar login). A divisão inteligente:</p>
+  <table>
+    <tr><th>Tarefa</th><th>Aqui (planejar/gerar)</th><th>Claude Code (executar)</th></tr>
+    <tr><td>Estrutura do banco e segurança</td><td>Gero os arquivos prontos</td><td>Você aplica no Supabase</td></tr>
+    <tr><td>Código das telas conectando ao banco</td><td>Escrevo tudo</td><td>Roda e testa ao vivo</td></tr>
+    <tr><td>Criar o projeto Supabase + chaves</td><td>Passo o passo a passo</td><td>Você faz no painel Supabase</td></tr>
+    <tr><td>Testar login, upload, segurança</td><td>—</td><td>Só dá pra validar ao vivo</td></tr>
+  </table>
+  <div class="destaque">
+    <strong>Resumindo:</strong> eu preparo toda a arquitetura, os arquivos do banco e o código aqui — você (ou a gente junto) executa a conexão e os testes no Claude Code. É a mesma divisão que combinamos para a Nota Fiscal.
+  </div>
+</section>
+
+<section style="border-bottom:none">
+  <span class="num">Próximo passo</span>
+  <h2 class="sec">Como seguimos</h2>
+  <ul class="check">
+    <li>Você lê este documento (e mostra pro Maurício, agora sócio).</li>
+    <li>Me diz o que ajustar — alguma tabela, alguma feature, a ordem dos blocos.</li>
+    <li>Eu gero os arquivos do <strong>Bloco 0</strong> (banco + login) e o passo a passo pra você rodar no Supabase.</li>
+    <li>Avançamos bloco a bloco, testando cada um, até o sistema inteiro estar real.</li>
+  </ul>
+  <div class="destaque">
+    <strong>Uma observação de parceiro:</strong> isso é um projeto de semanas, não de horas — é a construção de um produto de verdade. Mas a recompensa é enorme: no fim, a Alma tem um sistema que nenhum concorrente tem, e você tem uma estrutura que pode <strong>clonar e vender para outros estúdios</strong> (cada um com o seu próprio banco). Vale cada etapa.
+  </div>
+</section>
+</div>
+<footer>
+  <h3>Alma Fotografia · Plataforma</h3>
+  <p>De um site bonito para um sistema que sustenta o negócio inteiro — e que pode crescer muito além da Alma.</p>
+  <p class="sign">Arquitetura por JV Web Studio · para a parceria Jorge + Maurício</p>
+</footer>
+</body>
+</html>

@@ -37,7 +37,7 @@ export default function LevarFavoritasPortfolio({ fotos = [], clienteNome = '', 
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       onClick={onClose}
-      className="fixed inset-0 z-[80] grid place-items-center bg-cocoa-950/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[80] grid place-items-center bg-cocoa-950/40 p-4"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.96, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}

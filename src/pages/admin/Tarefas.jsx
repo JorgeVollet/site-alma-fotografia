@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Clock, AlertCircle, Plus, Pencil, Trash2, X } from 'lucide-react'
-import { TAREFAS_DEMO, CLIENTES } from '../../data/crm'
+import { TAREFAS_DEMO } from '../../data/crm'
 import { useApp } from '../../context/AppContext'
 
 const PRIORIDADE = {
@@ -12,7 +12,7 @@ const PRIORIDADE = {
 const HOJE = '2026-06-10'
 
 export default function Tarefas() {
-  const { tarefasFeitas, tarefasCustom, tarefasEdit, tarefasExcluidas, toggleTarefa, adicionarTarefa, editarTarefa, excluirTarefa } = useApp()
+  const { tarefasFeitas, tarefasCustom, tarefasEdit, tarefasExcluidas, toggleTarefa, adicionarTarefa, editarTarefa, excluirTarefa, clientes, getClienteNome } = useApp()
   const [editando, setEditando] = useState(null) // tarefa em edição/criação
 
   // Monta a lista final: base (com edições aplicadas, sem excluídas) + custom
@@ -23,7 +23,7 @@ export default function Tarefas() {
 
   const estaFeita = (t) => (tarefasFeitas[t.id] !== undefined ? tarefasFeitas[t.id] : t.feita)
   const nomeCliente = (id) => {
-    const c = CLIENTES.find((x) => x.id === id)
+    const c = clientes.find((x) => x.id === id)
     return c ? c.nome : 'Geral'
   }
 
@@ -117,7 +117,7 @@ function EditorTarefa({ tarefa, onClose, onSalvar }) {
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
       <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-2xl">{tarefa.novo ? 'Nova tarefa' : 'Editar tarefa'}</h3>
@@ -133,7 +133,7 @@ function EditorTarefa({ tarefa, onClose, onSalvar }) {
             <span className="text-sm text-cream-100/80">Relacionado a</span>
             <select className={inp} value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
               <option value="">Geral (sem cliente)</option>
-              {CLIENTES.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-3">

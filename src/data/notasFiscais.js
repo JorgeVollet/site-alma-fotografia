@@ -8,51 +8,9 @@
 //  status: 'autorizada' | 'processando' | 'pendente' | 'rejeitada' | 'cancelada'
 // =====================================================================
 
-export const NOTAS_DEMO = [
-  {
-    id: 'nf-001', numero: '000128', tipo: 'nfse',
-    cliente: 'Família Sphor', cpfCnpj: '012.345.678-90',
-    descricao: 'Ensaio Newborn · Pacote Memórias',
-    valor: 890, status: 'autorizada', emitidaEm: '2026-06-09T14:20:00',
-    pdf: '#', xml: '#', motivoErro: null,
-  },
-  {
-    id: 'nf-002', numero: '000129', tipo: 'nfe',
-    cliente: 'Família Sphor', cpfCnpj: '012.345.678-90',
-    descricao: 'Álbum encadernado premium 20x30',
-    valor: 690, status: 'autorizada', emitidaEm: '2026-06-10T09:05:00',
-    pdf: '#', xml: '#', motivoErro: null,
-  },
-  {
-    id: 'nf-003', numero: '—', tipo: 'nfse',
-    cliente: 'Patrícia Krever', cpfCnpj: '987.654.321-00',
-    descricao: 'Ensaio Gestante · Pacote Pocket',
-    valor: 600, status: 'processando', emitidaEm: '2026-06-11T16:40:00',
-    pdf: null, xml: null, motivoErro: null,
-  },
-  {
-    id: 'nf-004', numero: '—', tipo: 'nfse',
-    cliente: 'Daniela Schroter', cpfCnpj: '111.222.333-44',
-    descricao: 'Ensaio de Família · Pacote Memórias',
-    valor: 890, status: 'pendente', emitidaEm: null, pdf: null, xml: null,
-    motivoErro: null,
-  },
-  {
-    id: 'nf-005', numero: '—', tipo: 'nfe',
-    cliente: 'Majoire Sphor', cpfCnpj: '555.666.777-88',
-    descricao: 'Quadro em metacrilato 30x45',
-    valor: 320, status: 'rejeitada', emitidaEm: '2026-06-08T11:15:00',
-    pdf: null, xml: null,
-    motivoErro: 'CPF do tomador inválido. Corrija o cadastro e reemita.',
-  },
-  {
-    id: 'nf-006', numero: '000125', tipo: 'nfse',
-    cliente: 'Família Alma', cpfCnpj: '999.888.777-66',
-    descricao: 'Ensaio Smash the Cake · Pacote Memórias',
-    valor: 890, status: 'cancelada', emitidaEm: '2026-06-05T10:00:00',
-    pdf: '#', xml: '#', motivoErro: 'Cancelada a pedido — dados do tomador incorretos.',
-  },
-]
+// VAZIO — as notas fiscais reais vêm do backend (Focus NFe) no Bloco 8.
+// O admin começa sem notas; aparecem conforme forem emitidas de verdade.
+export const NOTAS_DEMO = []
 
 // Configuração visual de cada status (rótulo + classes Tailwind).
 export const STATUS_NF = {

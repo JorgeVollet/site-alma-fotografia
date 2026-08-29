@@ -1,34 +1,39 @@
 import { TrendingUp, Users, Target, Award, DollarSign, Repeat } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
-import { CLIENTES, FUNIL_ETAPAS } from '../../data/crm'
+import { FUNIL_ETAPAS } from '../../data/crm'
 import { useApp } from '../../context/AppContext'
 
 export default function Relatorios() {
-  const { funilOverride, agendamentos } = useApp()
+  const { clientes } = useApp()
 
-  const etapaDe = (c) => funilOverride[c.id] || c.funil
-  const comEnsaio = CLIENTES.filter((c) => c.galeriaId)
+  const etapaDe = (c) => c.etapa || c.funil // já derivado no memo (inclui galerias)
+  const comEnsaio = clientes.filter((c) => c.ensaios.length > 0)
 
-  // Receita por serviço
+  // Receita por serviço — soma TODOS os ensaios de cada cliente
   const porServico = {}
+  let receitaTotal = 0
+  let totalEnsaios = 0
   comEnsaio.forEach((c) => {
-    const tipo = (c.ensaios[0].titulo.split('·')[0] || c.ensaios[0].titulo).trim()
-    porServico[tipo] = (porServico[tipo] || 0) + c.ensaios[0].valor
+    c.ensaios.forEach((e) => {
+      const tipo = ((e.titulo || 'Ensaio').split('·')[0] || e.titulo || 'Ensaio').trim()
+      porServico[tipo] = (porServico[tipo] || 0) + (e.valor || 0)
+      receitaTotal += e.valor || 0
+      totalEnsaios += 1
+    })
   })
   const servicos = Object.entries(porServico).sort((a, b) => b[1] - a[1])
   const maxServico = Math.max(1, ...servicos.map(([, v]) => v))
 
   // Funil: conversão
-  const leads = CLIENTES.length
-  const fechados = CLIENTES.filter((c) => ['producao', 'entregue'].includes(etapaDe(c))).length
-  const conversao = Math.round((fechados / leads) * 100)
+  const leads = clientes.length
+  const fechados = clientes.filter((c) => ['producao', 'entregue'].includes(etapaDe(c))).length
+  const conversao = leads ? Math.round((fechados / leads) * 100) : 0
 
-  // Ticket médio
-  const receitaTotal = comEnsaio.reduce((s, c) => s + c.ensaios[0].valor, 0)
-  const ticketMedio = comEnsaio.length ? receitaTotal / comEnsaio.length : 0
+  // Ticket médio (por ensaio)
+  const ticketMedio = totalEnsaios ? receitaTotal / totalEnsaios : 0
 
   // Funil por etapa
-  const porEtapa = FUNIL_ETAPAS.map((e) => ({ ...e, n: CLIENTES.filter((c) => etapaDe(c) === e.id).length }))
+  const porEtapa = FUNIL_ETAPAS.map((e) => ({ ...e, n: clientes.filter((c) => etapaDe(c) === e.id).length }))
 
   const cards = [
     { label: 'Receita no período', valor: formatBRL(receitaTotal), icon: DollarSign, cor: 'text-clay-300' },

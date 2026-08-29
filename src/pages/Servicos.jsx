@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, ArrowRight, Camera } from 'lucide-react'
+import { ArrowUpRight, ArrowRight, Camera, MessageCircle } from 'lucide-react'
 import PageHero from '../components/PageHero'
 import Reveal from '../components/Reveal'
 import Photo from '../components/Photo'
 import CardEquipe from '../components/CardEquipe'
 import { SERVICOS, EQUIPE, STUDIO, ESSENCIA } from '../data/studio'
+import { waLink } from '../lib/wa'
 
 export default function Servicos() {
   return (
@@ -76,9 +77,23 @@ export default function Servicos() {
                         <li key={t} className="rounded-full border border-cream-100/15 px-3 py-1.5 text-xs text-cream-100/70">{t}</li>
                       ))}
                     </ul>
-                    <Link to="/agendar" className="mt-7 inline-flex items-center gap-2 text-sm text-clay-400 link-underline">
-                      Agendar {s.nome} <ArrowUpRight size={15} />
-                    </Link>
+                    <div className="mt-7">
+                      <p className="font-sans text-xs uppercase tracking-widest2 text-clay-400">Investimento sob consulta</p>
+                      <p className="mt-1.5 max-w-md font-sans text-sm font-light leading-relaxed text-cream-100/55">Cada ensaio é único. Fale com a gente para um orçamento personalizado — ou garanta já a sua data.</p>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <a
+                          href={waLink(STUDIO.whatsapp, `Oi! Tenho interesse no ensaio ${s.nome}. Pode me passar um orçamento? 💛`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full bg-[#25D366]/15 px-5 py-2.5 text-sm text-[#25D366] transition hover:bg-[#25D366]/25"
+                        >
+                          <MessageCircle size={15} /> Falar no WhatsApp
+                        </a>
+                        <Link to={`/agendar?servico=${s.id}`} className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">
+                          Agendar minha data <ArrowUpRight size={15} />
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Reveal>

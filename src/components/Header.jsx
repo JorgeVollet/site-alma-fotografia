@@ -9,9 +9,8 @@ const NAV = [
   { to: '/', label: 'Início', n: '01' },
   { to: '/servicos', label: 'Serviços', n: '02' },
   { to: '/portfolio', label: 'Portfólio', n: '03' },
-  { to: '/pacotes', label: 'Pacotes', n: '04' },
-  { to: '/agendar', label: 'Agendar', n: '05' },
-  { to: '/cliente', label: 'Área do Cliente', n: '06' },
+  { to: '/agendar', label: 'Agendar', n: '04' },
+  { to: '/cliente', label: 'Área do Cliente', n: '05' },
 ]
 
 export default function Header() {
@@ -32,16 +31,18 @@ export default function Header() {
     return () => { document.body.style.overflow = '' }
   }, [open])
 
-  // Todas as páginas têm hero escuro no topo -> conteúdo claro até rolar.
-  // Quando rola, vira barra clara sólida -> conteúdo escuro.
-  const light = !scrolled || open // true = elementos claros (sobre fundo escuro)
+  // No ADMIN o header é sempre sólido e escuro (fundo claro desde o topo).
+  // Nas demais páginas: hero escuro -> conteúdo claro até rolar; ao rolar vira sólido.
+  const isAdmin = pathname.startsWith('/admin')
+  const solido = scrolled || isAdmin            // header com fundo sólido
+  const light = (!scrolled && !isAdmin) || open // true = elementos claros (sobre fundo escuro)
   const barraStroke = light ? 'bg-cream-50' : 'bg-cocoa-800'
 
   return (
     <>
       <header
         className={`fixed inset-x-0 top-0 z-[60] transition-all duration-500 ease-smooth ${
-          scrolled && !open ? 'bg-cream-100/85 py-3 backdrop-blur-md shadow-sm' : 'py-5'
+          solido && !open ? 'bg-cream-100/90 py-3 backdrop-blur-md shadow-sm' : 'py-5'
         }`}
       >
         <div className="container-c flex items-center justify-between">

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, ChevronLeft, ChevronRight, Ban, Clock, Plus, Trash2, Check } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Ban, Clock, Plus, Trash2, Check, X, CalendarCheck } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
 import { useApp } from '../../context/AppContext'
 
@@ -8,15 +8,22 @@ const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function Agenda() {
-  const { agendamentos, diasBloqueados, horariosBloqueados, toggleDiaBloqueado, toggleHorarioBloqueado, horariosDoDia, adicionarHorario, editarHorario, removerHorario, bufferAntes, bufferDepois, setBuffer } = useApp()
-  const [ref, setRef] = useState(new Date('2026-06-10T12:00'))
+  const { agendamentos, diasBloqueados, horariosBloqueados, toggleDiaBloqueado, toggleHorarioBloqueado, horariosDoDia, adicionarHorario, editarHorario, removerHorario, bufferAntes, bufferDepois, setBuffer, confirmarAgendamento, cancelarAgendamento } = useApp()
+  const [ref, setRef] = useState(() => new Date())
   const [diaSel, setDiaSel] = useState(null)
+  const [verHistorico, setVerHistorico] = useState(false)
+  const [confirmando, setConfirmando] = useState(null) // reserva a confirmar (abre modal de duração)
+  const [detalhe, setDetalhe] = useState(null)         // reserva clicada (ver info)
 
   const ano = ref.getFullYear()
   const mes = ref.getMonth()
   const primeiroDia = new Date(ano, mes, 1).getDay()
   const diasNoMes = new Date(ano, mes + 1, 0).getDate()
-  const hojeStr = '2026-06-10'
+  const hojeStr = new Date().toISOString().slice(0, 10)
+
+  // reservas ativas (aguardando confirmação e data não passada) x resolvidas
+  const reservasAtivas = agendamentos.filter((a) => a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr))
+  const reservasResolvidas = agendamentos.filter((a) => !(a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr)))
 
   const fmt = (d) => ano + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0')
   const agsDoDia = (ds) => agendamentos.filter((a) => a.dia === ds)
@@ -132,32 +139,77 @@ export default function Agenda() {
         </div>
       </div>
 
-      {/* Lista de agendamentos do site */}
-      <h3 className="mt-8 font-serif text-xl">Reservas feitas no site</h3>
-      {agendamentos.length === 0 ? (
+      {/* Reservas do site — aguardando confirmação */}
+      <h3 className="mt-8 font-serif text-xl">Reservas aguardando confirmação</h3>
+      {reservasAtivas.length === 0 ? (
         <div className="mt-3 rounded-2xl bg-cocoa-900 p-8 text-center ring-1 ring-cream-100/10">
           <Calendar size={28} className="mx-auto text-cream-100/30" />
-          <p className="mt-3 text-sm text-cream-100/60">Nenhuma reserva ainda. Faça um teste em <Link to="/agendar" className="text-terracotta-400 underline">Agendar</Link>.</p>
+          <p className="mt-3 text-sm text-cream-100/60">Nenhuma reserva aguardando. Faça um teste em <Link to="/agendar" className="text-terracotta-400 underline">Agendar</Link>.</p>
         </div>
       ) : (
         <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
           <table className="w-full text-sm">
             <thead className="bg-cocoa-900 text-left text-xs uppercase tracking-wide text-cream-100/40">
-              <tr><th className="px-5 py-3">Cliente</th><th className="px-5 py-3">Ensaio</th><th className="hidden px-5 py-3 md:table-cell">Data</th><th className="px-5 py-3">Reserva</th></tr>
+              <tr><th className="px-5 py-3">Cliente</th><th className="px-5 py-3">Ensaio</th><th className="hidden px-5 py-3 md:table-cell">Data</th><th className="px-5 py-3">Reserva</th><th className="px-5 py-3 text-right">Ação</th></tr>
             </thead>
             <tbody className="divide-y divide-cream-100/5">
-              {agendamentos.map((a) => (
+              {reservasAtivas.map((a) => (
                 <tr key={a.id} className="bg-cocoa-900/40 hover:bg-cocoa-900">
-                  <td className="px-5 py-4"><p className="font-medium">{a.nome}</p><p className="text-xs text-cream-100/40">{a.telefone}</p></td>
+                  <td className="px-5 py-4">
+                    <button onClick={() => setDetalhe(a)} className="text-left hover:text-cream-100"><p className="font-medium">{a.nome}</p><p className="text-xs text-cream-100/40">{a.telefone}</p></button>
+                  </td>
                   <td className="px-5 py-4">{a.pacoteNome}</td>
                   <td className="hidden px-5 py-4 capitalize md:table-cell">{a.dia ? new Date(a.dia + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'} · {a.hora}</td>
                   <td className="px-5 py-4 text-terracotta-400">{formatBRL(a.valorReserva)}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setConfirmando(a)} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300 ring-1 ring-emerald-400/25 hover:bg-emerald-500/25"><Check size={12} /> Confirmar</button>
+                      <button onClick={() => { if (confirm('Cancelar esta reserva?')) cancelarAgendamento(a.id) }} className="rounded-full bg-cocoa-800 px-3 py-1.5 text-xs text-cream-100/60 ring-1 ring-cream-100/15 hover:text-red-300">Cancelar</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Histórico de reservas resolvidas */}
+      {reservasResolvidas.length > 0 && (
+        <div className="mt-4">
+          <button onClick={() => setVerHistorico((v) => !v)} className="text-xs text-cream-100/50 hover:text-cream-100">
+            {verHistorico ? '▾' : '▸'} Histórico de reservas ({reservasResolvidas.length})
+          </button>
+          {verHistorico && (
+            <div className="mt-2 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-cream-100/5">
+                  {reservasResolvidas.map((a) => (
+                    <tr key={a.id} onClick={() => setDetalhe(a)} className="cursor-pointer bg-cocoa-900/30 hover:bg-cocoa-900/60">
+                      <td className="px-5 py-3"><p className="text-cream-100/70">{a.nome}</p><p className="text-xs text-cream-100/40">{a.pacoteNome}</p></td>
+                      <td className="hidden px-5 py-3 capitalize md:table-cell">{a.dia ? new Date(a.dia + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</td>
+                      <td className="px-5 py-3 text-right">
+                        <span className={'rounded-full px-2.5 py-1 text-xs ' + (a.status === 'confirmado' ? 'bg-emerald-500/15 text-emerald-300' : a.status === 'cancelado' ? 'bg-cream-100/10 text-cream-100/50' : 'bg-sand-300/15 text-sand-200')}>
+                          {a.status === 'confirmado' ? 'Confirmada' : a.status === 'cancelado' ? 'Cancelada' : 'Passada'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {confirmando && (
+        <ConfirmarReserva
+          reserva={confirmando}
+          onClose={() => setConfirmando(null)}
+          onConfirmar={(duracaoMin) => { confirmarAgendamento(confirmando.id, duracaoMin); setConfirmando(null) }}
+        />
+      )}
+      {detalhe && <DetalheReserva reserva={detalhe} onClose={() => setDetalhe(null)} />}
     </div>
   )
 }
@@ -255,6 +307,57 @@ function DiaPainel({ ds, bloqueado, horariosBloq, ags, horarios, onToggleDia, on
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ---- Modal: confirmar reserva com a DURAÇÃO REAL ---- */
+function ConfirmarReserva({ reserva, onClose, onConfirmar }) {
+  const [dur, setDur] = useState(reserva.duracaoMin || 60)
+  const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 font-serif text-2xl"><CalendarCheck size={20} className="text-emerald-300" /> Confirmar reserva</h3>
+          <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
+        </div>
+        <p className="mt-2 text-sm text-cream-100/60">{reserva.nome} · {reserva.pacoteNome}{reserva.dia ? ' · ' + new Date(reserva.dia + 'T12:00').toLocaleDateString('pt-BR') + ' ' + reserva.hora : ''}</p>
+        <p className="mt-4 text-sm text-cream-100/70">Para confirmar, informe o <strong>tempo real</strong> do ensaio. A agenda bloqueia os horários desse dia automaticamente.</p>
+        <label className="mt-4 block"><span className="text-sm text-cream-100/80">Duração do ensaio (minutos)</span>
+          <input type="number" min="15" step="15" className={inp} value={dur} onChange={(e) => setDur(e.target.value)} />
+        </label>
+        <button onClick={() => onConfirmar(Math.max(15, Number(dur) || 60))} className="btn-light mt-6 w-full"><Check size={16} /> Confirmar e bloquear horários</button>
+      </div>
+    </div>
+  )
+}
+
+/* ---- Modal: detalhes da reserva ---- */
+function DetalheReserva({ reserva, onClose }) {
+  const wa = reserva.telefone ? 'https://wa.me/55' + reserva.telefone.replace(/\D/g, '') : null
+  const linha = (k, v) => (
+    <div className="flex justify-between gap-3 border-b border-cream-100/5 py-2 text-sm last:border-0"><span className="text-cream-100/50">{k}</span><span className="text-right text-cream-100/90">{v || '—'}</span></div>
+  )
+  return (
+    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-2xl">{reserva.nome}</h3>
+          <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
+        </div>
+        <div className="mt-4 rounded-2xl bg-cocoa-950 p-4">
+          {linha('Telefone', reserva.telefone)}
+          {linha('E-mail', reserva.email)}
+          {linha('Ensaio', reserva.servico)}
+          {linha('Pacote', reserva.pacoteNome)}
+          {linha('Data', reserva.dia ? new Date(reserva.dia + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) + ' · ' + reserva.hora : '—')}
+          {reserva.duracaoMin && linha('Duração', reserva.duracaoMin + ' min')}
+          {linha('Reserva', formatBRL(reserva.valorReserva))}
+          {linha('Status', reserva.status === 'a-confirmar' ? 'Aguardando confirmação' : reserva.status === 'confirmado' ? 'Confirmada' : 'Cancelada')}
+        </div>
+        {wa && <a href={wa} target="_blank" rel="noreferrer" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366]/15 px-4 py-2.5 text-sm text-[#25D366] hover:bg-[#25D366]/25">Chamar no WhatsApp</a>}
+      </div>
     </div>
   )
 }

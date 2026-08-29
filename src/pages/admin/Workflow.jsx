@@ -1,134 +1,145 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Workflow as WfIcon, Check, Clock, AlertTriangle, User, ChevronRight, ChevronLeft, X } from 'lucide-react'
-import { WORKFLOW_ETAPAS, PROJETOS_DEMO, EQUIPE_CRM } from '../../data/crm'
+import { useState, useEffect, useCallback } from 'react'
+import { Workflow as WfIcon, Check, Clock, User, Wand2, Loader2, ImageOff, CalendarClock } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
+import { statusLabel, statusCor } from '../../data/statusEnsaio'
+import { fetchEtapas, atualizarEtapa, criarEtapasPadrao } from '../../lib/producao'
+import { fetchProfiles } from '../../lib/equipe'
 
-const HOJE = '2026-06-10'
+const hoje = () => new Date().toISOString().slice(0, 10)
 
 export default function Workflow() {
-  const { workflowOverride, avancarEtapa, voltarEtapa, delegarProjeto } = useApp()
-  const [aberto, setAberto] = useState(null)
+  const { galerias } = useApp()
+  const [profiles, setProfiles] = useState([])
+  useEffect(() => { fetchProfiles().then(setProfiles) }, [])
 
-  const projetos = PROJETOS_DEMO.map((p) => ({ ...p, ...(workflowOverride[p.id] || {}) }))
-  const membro = (id) => EQUIPE_CRM.find((m) => m.id === id)
-  const etapaInfo = (id) => WORKFLOW_ETAPAS.find((e) => e.id === id)
+  // ensaios em produção = galerias com seleção recebida ou em edição
+  const emProducao = galerias.filter((g) => ['enviado', 'editando'].includes(g.status))
 
   return (
     <div>
       <h1 className="font-serif text-3xl">Fluxo de trabalho</h1>
-      <p className="mt-1 text-sm text-cream-100/60">Acompanhe cada projeto por etapa, com prazos e responsáveis. Clique para gerenciar.</p>
+      <p className="mt-1 text-sm text-cream-100/60">Cada ensaio em produção com suas etapas (edição → cor → retoque), responsável e prazo.</p>
 
-      <div className="mt-6 space-y-3">
-        {projetos.map((p) => {
-          const idx = WORKFLOW_ETAPAS.findIndex((e) => e.id === p.etapa)
-          const total = WORKFLOW_ETAPAS.length
-          const pct = Math.round(((idx + 1) / total) * 100)
-          const resp = membro(p.responsavel)
-          const atrasado = p.prazo < HOJE
-          return (
-            <button key={p.id} onClick={() => setAberto(p)} className="block w-full rounded-2xl bg-cocoa-900 p-5 text-left ring-1 ring-cream-100/10 transition hover:ring-terracotta-400/40">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium">{p.clienteNome}</p>
-                  <p className="flex items-center gap-2 text-xs text-cream-100/50">
-                    Etapa: <span className="text-terracotta-400">{etapaInfo(p.etapa).nome}</span>
-                    {resp && <span className="flex items-center gap-1"><User size={11} /> {resp.nome.split(' ')[0] || resp.nome}</span>}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {atrasado ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-terracotta-500/15 px-2.5 py-1 text-xs text-terracotta-400"><AlertTriangle size={11} /> atrasado</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-cream-100/10 px-2.5 py-1 text-xs text-cream-100/60"><Clock size={11} /> {new Date(p.prazo + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
-                  )}
-                  <ChevronRight size={16} className="text-cream-100/30" />
-                </div>
-              </div>
-              {/* Barra de etapas */}
-              <div className="mt-4 flex items-center gap-1">
-                {WORKFLOW_ETAPAS.map((e, i) => (
-                  <div key={e.id} className={'h-1.5 flex-1 rounded-full ' + (i <= idx ? 'bg-terracotta-500' : 'bg-cocoa-950')} />
-                ))}
-              </div>
-              <p className="mt-1.5 text-right text-xs text-cream-100/40">{pct}% · etapa {idx + 1} de {total}</p>
-            </button>
-          )
-        })}
-      </div>
-
-      <AnimatePresence>
-        {aberto && (
-          <ModalProjeto
-            projeto={projetos.find((p) => p.id === aberto.id)}
-            onClose={() => setAberto(null)}
-            onAvancar={(etapaAtual) => avancarEtapa(aberto.id, etapaAtual, aberto.cliente)}
-            onVoltar={(etapaAtual) => voltarEtapa(aberto.id, etapaAtual, aberto.cliente)}
-            onDelegar={(uid) => delegarProjeto(aberto.id, uid)}
-          />
-        )}
-      </AnimatePresence>
+      {emProducao.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-cream-100/15 bg-cocoa-900/40 p-10 text-center">
+          <ImageOff size={26} className="mx-auto text-cream-100/30" />
+          <p className="mt-3 text-sm text-cream-100/60">Nenhum ensaio em produção.</p>
+          <p className="mt-1 text-xs text-cream-100/40">Quando um cliente envia a seleção, o ensaio aparece aqui para você tocar a edição.</p>
+        </div>
+      ) : (
+        <div className="mt-6 space-y-3">
+          {emProducao.map((g) => <CardProducao key={g.id} galeria={g} profiles={profiles} />)}
+        </div>
+      )}
     </div>
   )
 }
 
-function ModalProjeto({ projeto, onClose, onAvancar, onVoltar, onDelegar }) {
-  const idx = WORKFLOW_ETAPAS.findIndex((e) => e.id === projeto.etapa)
-  const ultima = idx >= WORKFLOW_ETAPAS.length - 1
-  const primeira = idx <= 0
+function CardProducao({ galeria, profiles }) {
+  const { mudarStatusGaleria } = useApp()
+  const [etapas, setEtapas] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [iniciando, setIniciando] = useState(false)
+
+  const recarregar = useCallback(async () => {
+    setCarregando(true)
+    setEtapas(await fetchEtapas(galeria.id))
+    setCarregando(false)
+  }, [galeria.id])
+  useEffect(() => { recarregar() }, [recarregar, galeria.status])
+
+  const iniciarEdicao = async () => {
+    setIniciando(true)
+    await mudarStatusGaleria(galeria.id, 'editando')
+    await criarEtapasPadrao(galeria.id) // garante as etapas na hora (não depende só do trigger)
+    await recarregar()
+    setIniciando(false)
+  }
+
+  const criarEtapas = async () => {
+    await criarEtapasPadrao(galeria.id)
+    await recarregar()
+  }
+
+  const mudarEtapa = async (etapa, campos) => {
+    const nova = await atualizarEtapa(etapa.id, campos)
+    if (nova) setEtapas((l) => l.map((e) => (e.id === etapa.id ? nova : e)))
+  }
+
+  const concluidas = etapas.filter((e) => e.status === 'concluida').length
+  const pct = etapas.length ? Math.round((concluidas / etapas.length) * 100) : 0
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
-      <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }} onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
-        <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-serif text-2xl"><WfIcon size={22} className="text-terracotta-400" /> {projeto.clienteNome}</h3>
-          <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
+    <div className="rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">{galeria.clienteNome || galeria.nome}</p>
+          <p className="text-xs text-cream-100/50">{galeria.nome}</p>
         </div>
+        <span className={'rounded-full px-3 py-1.5 text-xs ' + statusCor(galeria.status)}>{statusLabel(galeria.status)}</span>
+      </div>
 
-        {/* Timeline de etapas */}
-        <div className="mt-6 space-y-1">
-          {WORKFLOW_ETAPAS.map((e, i) => {
-            const feita = i < idx
-            const atual = i === idx
-            return (
-              <div key={e.id} className="flex items-center gap-3">
-                <div className={'grid h-8 w-8 shrink-0 place-items-center rounded-full ' + (feita ? 'bg-clay-400 text-cream-50' : atual ? 'bg-terracotta-500 text-cream-50 ring-4 ring-terracotta-500/20' : 'bg-cocoa-950 text-cream-100/30')}>
-                  {feita ? <Check size={15} /> : i + 1}
-                </div>
-                <div className="flex-1 border-b border-cream-100/5 py-2.5">
-                  <p className={'text-sm ' + (atual ? 'font-medium text-cream-100' : feita ? 'text-cream-100/60' : 'text-cream-100/40')}>{e.nome}</p>
-                </div>
-                {atual && <span className="text-xs text-terracotta-400">atual</span>}
-              </div>
-            )
-          })}
+      {galeria.status === 'enviado' ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-cocoa-950 p-4">
+          <p className="text-sm text-cream-100/60">Seleção recebida. Bora começar a edição?</p>
+          <button onClick={iniciarEdicao} disabled={iniciando} className="inline-flex items-center gap-2 rounded-full bg-sky-500/15 px-4 py-2 text-xs text-sky-300 ring-1 ring-sky-400/25 hover:bg-sky-500/25 disabled:opacity-50">
+            {iniciando ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} Iniciar edição
+          </button>
         </div>
-
-        {/* Delegar */}
-        <div className="mt-6">
-          <p className="text-xs uppercase tracking-wide text-cream-100/40">Responsável pela etapa</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {EQUIPE_CRM.filter((m) => m.ativo).map((m) => (
-              <button key={m.id} onClick={() => onDelegar(m.id)} className={'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs transition ' + (projeto.responsavel === m.id ? 'bg-terracotta-500 text-cream-50' : 'bg-cocoa-800 text-cream-100/70 hover:bg-cocoa-700')}>
-                <div className={m.avatarGrad + ' grid h-5 w-5 place-items-center rounded-full text-[9px] text-cream-50'}>{m.nome.charAt(0)}</div>
-                {m.nome.split(' ')[0] || m.nome}
-              </button>
-            ))}
+      ) : carregando ? (
+        <div className="mt-4 flex items-center gap-2 text-sm text-cream-100/40"><Loader2 size={14} className="animate-spin" /> Carregando etapas…</div>
+      ) : etapas.length === 0 ? (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-cocoa-950 p-4">
+          <p className="text-sm text-cream-100/60">Sem etapas ainda.</p>
+          <button onClick={criarEtapas} className="inline-flex items-center gap-2 rounded-full bg-terracotta-500/20 px-4 py-2 text-xs text-terracotta-300 ring-1 ring-terracotta-400/30 hover:bg-terracotta-500/30"><Wand2 size={14} /> Criar etapas de produção</button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-cocoa-950">
+              <div className="h-full rounded-full bg-terracotta-500 transition-all" style={{ width: pct + '%' }} />
+            </div>
+            <span className="text-xs text-cream-100/40">{concluidas}/{etapas.length}</span>
           </div>
-        </div>
+          <div className="mt-3 space-y-2">
+            {etapas.map((e) => <LinhaEtapa key={e.id} etapa={e} profiles={profiles} onMudar={(campos) => mudarEtapa(e, campos)} />)}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
-        <div className="mt-7 space-y-2.5">
-          {!primeira && (
-            <button onClick={() => onVoltar(projeto.etapa)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-cocoa-800 py-2.5 text-sm text-cream-100/70 transition hover:bg-cocoa-700">
-              <ChevronLeft size={15} /> Voltar para "{WORKFLOW_ETAPAS[idx - 1].nome}"
-            </button>
-          )}
-          {!ultima ? (
-            <button onClick={() => onAvancar(projeto.etapa)} className="btn-light w-full"><ChevronRight size={16} /> Avançar para "{WORKFLOW_ETAPAS[idx + 1].nome}"</button>
-          ) : (
-            <p className="rounded-xl bg-clay-400/10 p-4 text-center text-sm text-clay-300">✓ Etapa final — cliente movido para "entregue" no funil!</p>
-          )}
+function LinhaEtapa({ etapa, profiles, onMudar }) {
+  const atrasada = etapa.prazo && etapa.prazo < hoje() && etapa.status !== 'concluida'
+  const cor = etapa.status === 'concluida' ? 'bg-emerald-500 text-cream-50' : etapa.status === 'em_andamento' ? 'bg-sky-500 text-cream-50' : 'bg-cocoa-800 text-cream-100/40'
+  return (
+    <div className="rounded-xl bg-cocoa-950 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className={'grid h-7 w-7 place-items-center rounded-full text-xs ' + cor}>{etapa.status === 'concluida' ? <Check size={14} /> : etapa.ordem}</span>
+          <span className="text-sm font-medium">{etapa.nome}</span>
         </div>
-      </motion.div>
-    </motion.div>
+        {/* status: pendente -> em andamento -> concluída (reversível) */}
+        <div className="flex gap-1">
+          {[['pendente', 'Pendente'], ['em_andamento', 'Em andamento'], ['concluida', 'Concluída']].map(([id, label]) => (
+            <button key={id} onClick={() => onMudar({ status: id })} className={'rounded-full px-2.5 py-1 text-[11px] transition ' + (etapa.status === id ? 'bg-terracotta-500 text-cream-50' : 'bg-cocoa-800 text-cream-100/50 hover:text-cream-100')}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="mt-2.5 flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-1.5 text-xs text-cream-100/50">
+          <User size={12} /> Responsável
+          <select value={etapa.responsavelId || ''} onChange={(e) => onMudar({ responsavelId: e.target.value || null })} className="rounded-lg border border-cream-100/10 bg-cocoa-900 px-2 py-1 text-xs text-cream-100 outline-none focus:border-terracotta-400">
+            <option value="">—</option>
+            {profiles.map((p) => <option key={p.id} value={p.id}>{p.nome || p.email}</option>)}
+          </select>
+        </label>
+        <label className={'flex items-center gap-1.5 text-xs ' + (atrasada ? 'text-terracotta-400' : 'text-cream-100/50')}>
+          {atrasada ? <CalendarClock size={12} /> : <Clock size={12} />} Prazo
+          <input type="date" value={etapa.prazo || ''} onChange={(e) => onMudar({ prazo: e.target.value || null })} className="rounded-lg border border-cream-100/10 bg-cocoa-900 px-2 py-1 text-xs text-cream-100 outline-none focus:border-terracotta-400" />
+        </label>
+      </div>
+    </div>
   )
 }

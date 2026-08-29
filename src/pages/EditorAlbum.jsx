@@ -185,7 +185,7 @@ export default function EditorAlbum() {
 
       <AnimatePresence>
         {galeriaAberta && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setGaleriaAberta(false)} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setGaleriaAberta(false)} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
             <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-cocoa-900 p-6 ring-1 ring-cream-100/10">
               <div className="flex items-center justify-between"><h3 className="font-serif text-2xl">Inserir foto</h3><button onClick={() => setGaleriaAberta(false)} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button></div>
               <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6">
@@ -228,7 +228,7 @@ function MiniSpread({ spread }) {
 function ModalTexto({ el, onClose, onSalvar }) {
   const [t, setT] = useState(el.texto)
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[75] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[75] flex items-center justify-center bg-cocoa-950/40 p-4">
       <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <h3 className="font-serif text-2xl">Editar texto</h3>
         <textarea autoFocus rows={3} value={t} onChange={(e) => setT(e.target.value)} className="mt-4 w-full resize-none rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400" />

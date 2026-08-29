@@ -139,3 +139,154 @@
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* ===================================================================
+   TEMA CLARO DO PAINEL ADMIN
+   Inverte o painel (antes escuro) para base CREME + cards BRANCOS,
+   com detalhes em sálvia (cocoa) e marrom (terracota/clay).
+   Aplicado via escopo .painel-claro — sem tocar nos 24 arquivos.
+   =================================================================== */
+.painel-claro {
+  background: #e8e1d4; /* champagne/areia clara — base marrom suave */
+  color: #444944;      /* cocoa-900 — texto principal */
+}
+
+/* --- FUNDOS: escuro -> claro --- */
+.painel-claro .bg-cocoa-950,
+.painel-claro .bg-cocoa-950\/70,
+.painel-claro .bg-cocoa-950\/60,
+.painel-claro .bg-cocoa-950\/50,
+.painel-claro .bg-cocoa-950\/40,
+.painel-claro .bg-cocoa-950\/20 { background-color: #efe9dd !important; } /* areia muito clara (sutil sobre o fundo) */
+
+/* VÉU DOS MODAIS — translúcido, deixa o painel admin VISÍVEL por trás.
+   Mais específico que a regra opaca acima (.fixed.inset-0 = +2 classes), então
+   vence só nos overlays de modal; superfícies internas que usam bg-cocoa-950/40
+   (linhas de NotasFiscais, botões da Visão) continuam areia opaca. */
+.painel-claro .fixed.inset-0.bg-cocoa-950\/40,
+.painel-claro .fixed.inset-0.bg-cocoa-950\/50 {
+  background-color: rgba(45, 41, 37, 0.42) !important; /* cocoa escuro translúcido */
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.painel-claro .bg-cocoa-900,
+.painel-claro .bg-cocoa-900\/95,
+.painel-claro .bg-cocoa-900\/70,
+.painel-claro .bg-cocoa-900\/50,
+.painel-claro .bg-cocoa-900\/40,
+.painel-claro .bg-cocoa-900\/30,
+.painel-claro .bg-cocoa-900\/20 { background-color: #ffffff !important; } /* cards brancos */
+
+.painel-claro .bg-cocoa-800,
+.painel-claro .bg-cocoa-800\/50,
+.painel-claro .bg-cocoa-700 { background-color: #ddd5c2 !important; } /* sand — superfícies sutis (mais escuro que o fundo) */
+
+.painel-claro .bg-cocoa-950\/0 { background-color: transparent !important; }
+
+/* PISO DE LEGIBILIDADE: QUALQUER text-cream-100/<opacidade> fica legível no tema
+   claro. O tema só remapeava passos fixos (/30..90), então opacidades fora da
+   tabela (/45,/55,/65,/75,/25,/20 — títulos de cards, nomes de ensaio) voltavam
+   ao cream claro original e SUMIAM. Esta regra (atributo, mesma especificidade
+   das de passo) é o piso; as regras específicas abaixo, por virem DEPOIS, vencem
+   e refinam a hierarquia nos passos documentados. */
+.painel-claro [class*="text-cream-100"] { color: #5b625a !important; } /* médio legível (~5.2:1+) */
+
+/* --- TEXTOS: cream (claro) -> cocoa (escuro), escala com contraste AA --- */
+.painel-claro .text-cream-50,
+.painel-claro .text-cream-100 { color: #3a3f3a !important; }       /* principal (~7.4:1) */
+.painel-claro .text-cream-100\/90,
+.painel-claro .text-cream-100\/85,
+.painel-claro .text-cream-100\/80 { color: #4a504a !important; }    /* forte (~5.7:1) */
+.painel-claro .text-cream-100\/70,
+.painel-claro .text-cream-100\/60 { color: #5b625a !important; }    /* médio (~4.3:1+) */
+.painel-claro .text-cream-100\/50,
+.painel-claro .text-cream-100\/40,
+.painel-claro .text-cream-100\/30 { color: #66614f !important; }    /* suave/taupe (~4.2:1+) */
+
+/* ============================================================
+   BADGES/CHIPS COLORIDOS — o texto -3xx/-4xx (e tokens que o Tailwind
+   nem gera, tipo clay-300/terracotta-300/sand-200) foi pensado p/ fundo
+   ESCURO. No tema claro a tinta de fundo fica clara, então escurecemos
+   só o TEXTO (matiz preservado), mantendo a tinta. [class*=...] força a
+   cor inclusive nas classes inexistentes (que antes herdavam cor).
+   Ficam ANTES das exceções de fundo sólido (abaixo), que vencem onde o
+   chip tem bg colorido sólido (texto volta a branco).
+   ============================================================ */
+.painel-claro [class*="text-amber-3"],
+.painel-claro [class*="text-amber-4"] { color: #92400e !important; }   /* âmbar escuro (~6.5:1) */
+.painel-claro [class*="text-emerald-3"],
+.painel-claro [class*="text-emerald-4"] { color: #065f46 !important; } /* verde escuro (~6.7:1) */
+.painel-claro [class*="text-sky-3"],
+.painel-claro [class*="text-sky-4"] { color: #075985 !important; }     /* azul escuro (~6.5:1) */
+.painel-claro [class*="text-red-3"],
+.painel-claro [class*="text-red-4"] { color: #b91c1c !important; }     /* vermelho (~5.3:1) */
+.painel-claro [class*="text-clay-2"],
+.painel-claro [class*="text-clay-3"],
+.painel-claro [class*="text-clay-4"] { color: #6b5847 !important; }    /* taupe escuro (~7:1) */
+.painel-claro [class*="text-terracotta-3"],
+.painel-claro [class*="text-terracotta-4"] { color: #8a5a3c !important; } /* terracota escura (~4.9:1) */
+.painel-claro [class*="text-sand-2"] { color: #565c55 !important; }    /* sálvia escura (~6.3:1) */
+
+/* WhatsApp: o verde #25D366 como TEXTO/ícone fica ~2:1 sobre fundo claro;
+   escurece só o texto/ícone (o fundo bg-[#25D366]/15 permanece verde claro). */
+.painel-claro [class*="text-[#25D366]"] { color: #128c3e !important; }
+
+/* --- RINGS e BORDERS: cream translúcido -> linha clara --- */
+.painel-claro [class*="ring-cream-100"] { --tw-ring-color: rgba(104,111,103,0.15) !important; }
+.painel-claro [class*="border-cream-100"] { border-color: rgba(104,111,103,0.14) !important; }
+
+/* --- INPUTS no tema claro (fundo escuro -> branco com borda) --- */
+.painel-claro input,
+.painel-claro select,
+.painel-claro textarea { background-color: #fbfbfa !important; color: #444944 !important; }
+
+/* PLACEHOLDERS: a regra .text-cream-100/30 não pega ::placeholder (pseudo-elemento),
+   então os placeholders ficavam cream a 30% (~1:1, invisíveis). opacity:1 porque o
+   Firefox aplica 0.54 por padrão ao ::placeholder. */
+.painel-claro ::placeholder { color: #7d7768 !important; opacity: 1 !important; }
+.painel-claro input::placeholder,
+.painel-claro textarea::placeholder { color: #7d7768 !important; opacity: 1 !important; }
+
+/* --- A barra lateral (sidebar) ganha um leve contraste do conteúdo --- */
+.painel-claro aside .bg-cocoa-900 { background-color: #ffffff !important; }
+
+/* --- LARGURA: rente à margem esquerda, amplo com teto --- */
+.painel-claro .container-c {
+  max-width: 1560px;
+  margin-left: 0;        /* cola na esquerda */
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .painel-claro .container-c {
+    padding-left: 1.25rem;  /* margem esquerda mínima — sidebar quase na borda */
+    padding-right: 2rem;
+  }
+}
+
+/* --- EXCEÇÕES: textos brancos sobre fundos COLORIDOS continuam brancos ---
+   (botão ativo do menu, badges terracota/clay/emerald, etc.) O CSS acima
+   inverteu text-cream globalmente; aqui restauramos onde o fundo é colorido. */
+.painel-claro [class*="bg-terracotta"] .text-cream-50,
+.painel-claro [class*="bg-terracotta"].text-cream-50,
+.painel-claro [class*="bg-terracotta"] .text-cream-100,
+.painel-claro [class*="bg-terracotta"].text-cream-100,
+.painel-claro [class*="bg-clay"] .text-cream-50,
+.painel-claro [class*="bg-clay"].text-cream-50,
+.painel-claro [class*="bg-clay"] .text-cream-100,
+.painel-claro [class*="bg-clay"].text-cream-100,
+.painel-claro [class*="bg-emerald"] .text-cream-50,
+.painel-claro [class*="bg-sage-5"] .text-cream-50 { color: #fbfbfa !important; }
+
+/* fundos coloridos NÃO são invertidos pelo tema (mantêm a cor da marca) */
+.painel-claro [class*="bg-terracotta"],
+.painel-claro [class*="bg-clay-4"],
+.painel-claro [class*="bg-clay-5"] { /* mantém como Tailwind define */ }
+
+/* o avatar/realce ativo do menu: garante legibilidade do texto branco */
+.painel-claro button.bg-terracotta-500,
+.painel-claro .bg-terracotta-500 { background-color: #a67a55 !important; color: #fbfbfa !important; }
+.painel-claro button.bg-terracotta-500 *,
+.painel-claro .bg-terracotta-500 * { color: #fbfbfa !important; }

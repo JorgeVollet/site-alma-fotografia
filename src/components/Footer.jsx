@@ -6,8 +6,7 @@ import { STUDIO } from '../data/studio'
 
 export default function Footer() {
   const { pathname } = useLocation()
-  // Na página de Pacotes o selo sobe 15px (de -241px para -256px); nas demais fica em -241px.
-  const seloTop = pathname === '/pacotes' ? 'md:-top-[271px]' : 'md:-top-[241px]'
+  const seloTop = 'md:-top-[241px]'
   return (
     <footer className="relative bg-cocoa-950 text-cream-200">
       <div className="grain pointer-events-none absolute inset-0 overflow-hidden opacity-[0.04]" />
@@ -55,7 +54,6 @@ export default function Footer() {
               {[
                 ['Serviços', '/servicos'],
                 ['Portfólio', '/portfolio'],
-                ['Pacotes', '/pacotes'],
                 ['Agendar ensaio', '/agendar'],
                 ['Área do Cliente', '/cliente'],
               ].map(([l, to]) => (

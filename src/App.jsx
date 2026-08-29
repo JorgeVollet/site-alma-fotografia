@@ -9,7 +9,6 @@ import Home from './pages/Home'
 import Servicos from './pages/Servicos'
 import Portfolio from './pages/Portfolio'
 import Ensaio from './pages/Ensaio'
-import Pacotes from './pages/Pacotes'
 import Agendar from './pages/Agendar'
 import AreaCliente from './pages/AreaCliente'
 import Admin from './pages/Admin'
@@ -44,7 +43,6 @@ export default function App() {
             <Route path="/servicos" element={<Servicos />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/ensaio/:id" element={<Ensaio />} />
-            <Route path="/pacotes" element={<Pacotes />} />
             <Route path="/agendar" element={<Agendar />} />
             <Route path="/cliente" element={<AreaCliente />} />
             <Route path="/admin" element={<Admin />} />

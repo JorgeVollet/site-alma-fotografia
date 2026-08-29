@@ -1,20 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, TrendingDown, Wallet, BarChart3, X, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
-import { FINANCEIRO_DEMO } from '../../data/crm'
-import { useApp } from '../../context/AppContext'
+import { fetchLancamentos } from '../../lib/financeiro'
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const MESES_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function FluxoCaixa() {
-  const { financeiroCustom, financeiroEdit, financeiroExcluido, agendamentos } = useApp()
+  const [todos, setTodos] = useState([])
   const [drill, setDrill] = useState(null) // { titulo, lancamentos }
 
-  const reservas = agendamentos.map((a, i) => ({ id: 'ag' + i, tipo: 'entrada', valor: a.valorReserva || 0, data: (a.criadoEm || '').slice(0, 10), categoria: 'Reserva', descricao: 'Reserva (site) — ' + (a.nome || 'Cliente') }))
-  const base = FINANCEIRO_DEMO.filter((l) => !financeiroExcluido[l.id]).map((l) => ({ ...l, ...(financeiroEdit[l.id] || {}) }))
-  const todos = [...financeiroCustom, ...reservas, ...base].filter((l) => l.data)
+  useEffect(() => { fetchLancamentos().then((ls) => setTodos(ls.filter((l) => l.data))) }, [])
 
   const porMes = {}
   for (let m = 0; m < 12; m++) porMes[m] = { entrada: 0, saida: 0, itens: [] }
@@ -104,7 +101,7 @@ function DrillModal({ titulo, lancamentos, onClose }) {
   const entradas = lancamentos.filter((l) => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0)
   const saidas = lancamentos.filter((l) => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0)
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/70 p-4 backdrop-blur-sm">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
       <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 300, damping: 26 }} onClick={(e) => e.stopPropagation()} className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-2xl">{titulo}</h3>

@@ -1,28 +1,42 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FileSignature, Check, Eraser, ShieldCheck, Camera } from 'lucide-react'
-import { CONTRATOS_DEMO, montarContrato } from '../data/crm'
+import { FileSignature, Check, Eraser, ShieldCheck, Camera, Loader2 } from 'lucide-react'
+import { montarContrato } from '../data/crm'
 import { formatBRL } from '../components/Money'
-import { useApp } from '../context/AppContext'
+import { carregarContratoPublico, assinarContratoPublico } from '../lib/contratos'
 import Logo from '../components/Logo'
 
 // Página PÚBLICA de assinatura — é o que o cliente abre pelo link do WhatsApp.
+// O :id da rota é o TOKEN do contrato. Sem login: usa RPCs SECURITY DEFINER.
 export default function Assinar() {
-  const { id } = useParams()
-  const { contratosEdit, contratosCustom, registrarAssinatura } = useApp()
+  const { id: token } = useParams()
   const canvasRef = useRef(null)
+  const [contrato, setContrato] = useState(null)
+  const [carregando, setCarregando] = useState(true)
   const [temAssinatura, setTemAssinatura] = useState(false)
   const [assinado, setAssinado] = useState(false)
+  const [salvando, setSalvando] = useState(false)
   const desenhando = useRef(false)
 
-  const custom = contratosCustom.find((c) => c.id === id)
-  const baseDemo = CONTRATOS_DEMO.find((c) => c.id === id)
-  const contrato = custom ? custom : (baseDemo ? { ...baseDemo, ...(contratosEdit[id] || {}) } : null)
+  // carrega o contrato pelo token (anônimo)
+  useEffect(() => {
+    let vivo = true
+    carregarContratoPublico(token).then((res) => {
+      if (!vivo) return
+      if (res && res.ok) {
+        setContrato(res.contrato)
+        if (res.contrato.status === 'assinado') setAssinado(true)
+      }
+      setCarregando(false)
+    })
+    return () => { vivo = false }
+  }, [token])
+
   const jaAssinado = contrato && (contrato.status === 'assinado' || assinado)
 
   useEffect(() => {
-    if (jaAssinado) return
+    if (!contrato || jaAssinado) return
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -42,13 +56,22 @@ export default function Assinar() {
       canvas.removeEventListener('mousedown', start); canvas.removeEventListener('mousemove', move); window.removeEventListener('mouseup', end)
       canvas.removeEventListener('touchstart', start); canvas.removeEventListener('touchmove', move); canvas.removeEventListener('touchend', end)
     }
-  }, [jaAssinado])
+  }, [contrato, jaAssinado])
+
+  if (carregando) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-cream-200 p-6 text-center">
+        <div className="flex items-center gap-3 text-cocoa-600"><Loader2 size={20} className="animate-spin" /> Carregando contrato…</div>
+      </div>
+    )
+  }
 
   if (!contrato) {
     return (
       <div className="grid min-h-screen place-items-center bg-cream-200 p-6 text-center">
         <div>
           <p className="font-serif text-2xl text-cocoa-800">Contrato não encontrado</p>
+          <p className="mt-2 text-sm text-cocoa-500">O link pode ter expirado ou estar incorreto.</p>
           <Link to="/" className="btn-primary mt-5">Ir para o site</Link>
         </div>
       </div>
@@ -56,21 +79,24 @@ export default function Assinar() {
   }
 
   const limpar = () => { const c = canvasRef.current; c.getContext('2d').clearRect(0, 0, c.width, c.height); setTemAssinatura(false) }
-  const confirmar = () => {
+  const confirmar = async () => {
+    if (salvando) return
+    setSalvando(true)
     const dataURL = canvasRef.current.toDataURL('image/png')
-    registrarAssinatura(id, dataURL, contrato)
-    setAssinado(true)
+    const res = await assinarContratoPublico(token, dataURL)
+    setSalvando(false)
+    if (res && res.ok) setAssinado(true)
   }
 
-  const clausulas = (contrato.clausulas && contrato.clausulas.length)
+  const clausulas = (Array.isArray(contrato.clausulas) && contrato.clausulas.length)
     ? contrato.clausulas.map((cl) => cl
         .replace(/\{\{cliente\}\}/g, contrato.clienteNome || '—')
         .replace(/\{\{valor\}\}/g, contrato.valor ? formatBRL(contrato.valor) : '—')
-        .replace(/\{\{data\}\}/g, contrato.criado ? new Date(contrato.criado + 'T12:00').toLocaleDateString('pt-BR') : '—')
+        .replace(/\{\{data\}\}/g, contrato.criado ? new Date(contrato.criado).toLocaleDateString('pt-BR') : '—')
         .replace(/\{\{ensaio\}\}/g, contrato.ensaio || 'o ensaio contratado'))
     : montarContrato(contrato.modelo, {
         cliente: contrato.clienteNome, valor: formatBRL(contrato.valor),
-        data: contrato.criado ? new Date(contrato.criado + 'T12:00').toLocaleDateString('pt-BR') : '—',
+        data: contrato.criado ? new Date(contrato.criado).toLocaleDateString('pt-BR') : '—',
         ensaio: contrato.ensaio || 'o ensaio contratado',
       })
 
@@ -106,6 +132,9 @@ export default function Assinar() {
               {clausulas.map((cl, i) => (
                 <p key={i} className="text-sm leading-relaxed text-cocoa-700"><strong>Cláusula {i + 1}ª.</strong> {cl}</p>
               ))}
+              {clausulas.length === 0 && (
+                <p className="text-sm text-cocoa-500">{contrato.pdfNome ? 'Contrato anexado em PDF. Leia o documento enviado pelo estúdio antes de assinar.' : 'Sem cláusulas cadastradas.'}</p>
+              )}
             </div>
 
             <p className="mt-6 flex items-center gap-2 text-sm font-medium text-cocoa-700"><FileSignature size={16} className="text-terracotta-500" /> Assine abaixo para aceitar os termos:</p>
@@ -117,7 +146,9 @@ export default function Assinar() {
               <span className="text-xs text-cocoa-400">{contrato.clienteNome}</span>
             </div>
 
-            <button onClick={confirmar} disabled={!temAssinatura} className="btn-primary mt-6 w-full disabled:opacity-40"><Check size={16} /> Assinar contrato</button>
+            <button onClick={confirmar} disabled={!temAssinatura || salvando} className="btn-primary mt-6 w-full disabled:opacity-40">
+              {salvando ? <><Loader2 size={16} className="animate-spin" /> Registrando…</> : <><Check size={16} /> Assinar contrato</>}
+            </button>
             <p className="mt-3 text-center text-xs text-cocoa-400">Ao assinar, você concorda com os termos acima. Assinatura eletrônica com validade jurídica (Lei 14.063/2020).</p>
           </div>
         )}

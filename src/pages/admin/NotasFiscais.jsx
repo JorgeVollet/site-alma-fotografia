@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  FileText, Search, Download, FileCode2, RotateCcw, Ban, X, ArrowLeft,
-  CheckCircle2, Clock, AlertTriangle, Filter, Mail,
+  FileText, Search, Download, FileCode2, RotateCcw, Ban, ArrowLeft,
+  CheckCircle2, Clock, AlertTriangle, Filter, Mail, Receipt, Sparkles, Loader2, Trash2,
 } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
-import { NOTAS_DEMO, STATUS_NF, TIPO_NF } from '../../data/notasFiscais'
+import { STATUS_NF, TIPO_NF } from '../../data/notasFiscais'
+import { useApp } from '../../context/AppContext'
 
 const dataFmt = (iso) =>
   iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
@@ -13,12 +14,15 @@ const dataHoraFmt = (iso) =>
   iso ? new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
 
 export default function NotasFiscais() {
-  // No futuro, NOTAS_DEMO vira uma chamada ao backend (Focus NFe).
-  const [notas] = useState(NOTAS_DEMO)
+  const { notas, faturaveis, gerarNota, marcarNotaEmitida, reverterEmissao, cancelarNota, excluirNota, recarregarFiscal } = useApp()
+  // A fila "Pronto para emitir" deriva das contas pagas (marcadas em Contas/Seleções,
+  // que têm estado próprio). Sem realtime: ao abrir Notas, refaz a busca da fila.
+  useEffect(() => { recarregarFiscal() }, [recarregarFiscal])
   const [tipo, setTipo] = useState('todos') // todos | nfse | nfe
   const [status, setStatus] = useState('todos')
   const [busca, setBusca] = useState('')
   const [aberta, setAberta] = useState(null)
+  const [gerando, setGerando] = useState(null) // contaId sendo gerado
 
   const filtradas = useMemo(() => {
     return notas.filter((n) => {
@@ -26,7 +30,7 @@ export default function NotasFiscais() {
       if (status !== 'todos' && n.status !== status) return false
       if (busca.trim()) {
         const q = busca.toLowerCase()
-        if (!n.cliente.toLowerCase().includes(q) && !n.descricao.toLowerCase().includes(q) && !n.numero.includes(q)) return false
+        if (!n.cliente.toLowerCase().includes(q) && !n.descricao.toLowerCase().includes(q) && !String(n.numero).includes(q)) return false
       }
       return true
     })
@@ -38,24 +42,70 @@ export default function NotasFiscais() {
   const comErro = notas.filter((n) => n.status === 'rejeitada')
   const totalAutorizado = autorizadas.reduce((s, n) => s + n.valor, 0)
 
-  if (aberta) return <DetalheNota nota={aberta} onVoltar={() => setAberta(null)} />
+  const handleGerar = async (faturavel, tp) => {
+    setGerando(faturavel.lancamentoId)
+    const nova = await gerarNota(faturavel, tp)
+    setGerando(null)
+    if (!nova) alert('Não foi possível gerar a nota agora. Tente novamente.')
+  }
+
+  if (aberta) {
+    const atual = notas.find((n) => n.id === aberta.id) || aberta
+    return <DetalheNota nota={atual} onVoltar={() => setAberta(null)} onEmitir={marcarNotaEmitida} onReverter={reverterEmissao} onCancelar={cancelarNota} onExcluir={(id) => { excluirNota(id); setAberta(null) }} />
+  }
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl">Notas fiscais</h1>
-          <p className="mt-1 text-sm text-cream-100/60">NFS-e (serviço) e NF-e (produto) emitidas pelo site. Clique para ver detalhes.</p>
+          <p className="mt-1 text-sm text-cream-100/60">Pagamentos recebidos viram nota a 1 clique. A emissão fiscal real (Focus NFe) conecta depois.</p>
         </div>
         <span className="rounded-full bg-cream-100/5 px-3 py-1.5 text-[11px] text-cream-100/40 ring-1 ring-cream-100/10">
-          Demo — integração Focus NFe em construção
+          Emissão Focus NFe — em construção
         </span>
+      </div>
+
+      {/* Pronto para emitir: contas recebidas que ainda não viraram nota */}
+      <div className="mt-6 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
+        <div className="flex items-center gap-2">
+          <Receipt size={18} className="text-terracotta-400" />
+          <h2 className="font-serif text-xl">Pronto para emitir</h2>
+          <span className="rounded-full bg-terracotta-500/15 px-2 py-0.5 text-[11px] text-terracotta-300">{faturaveis.length}</span>
+        </div>
+        <p className="mt-1 text-xs text-cream-100/50">Pagamentos já recebidos, sem nota. Gere a nota vinculada — sem redigitar nada.</p>
+
+        <div className="mt-4 space-y-2.5">
+          <AnimatePresence mode="popLayout">
+            {faturaveis.map((f) => (
+              <motion.div
+                key={f.lancamentoId} layout
+                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98 }}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-cocoa-950 px-4 py-3 ring-1 ring-cream-100/5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-cream-100">{f.cliente}</p>
+                  <p className="truncate text-xs text-cream-100/50">{f.descricao}{f.categoria ? ` · ${f.categoria}` : ''} · recebido {dataFmt(f.pagoEm)}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-serif text-base text-cream-100">{formatBRL(f.valor)}</span>
+                  <GerarBotao faturavel={f} onGerar={handleGerar} ocupado={gerando === f.lancamentoId} />
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {faturaveis.length === 0 && (
+            <p className="rounded-xl bg-cocoa-950 px-4 py-6 text-center text-sm text-cream-100/40">
+              Nenhum pagamento aguardando nota. Quando uma conta é marcada como recebida, ela aparece aqui.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Cards de resumo */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Resumo icon={CheckCircle2} cor="text-emerald-300" label="Autorizadas" valor={autorizadas.length} />
-        <Resumo icon={Clock} cor="text-amber-300" label="Em processamento" valor={pendentes.length} />
+        <Resumo icon={Clock} cor="text-amber-300" label="Pendentes / processando" valor={pendentes.length} />
         <Resumo icon={AlertTriangle} cor="text-terracotta-300" label="Com erro" valor={comErro.length} alerta={comErro.length > 0} />
         <Resumo icon={FileText} cor="text-clay-300" label="Total autorizado" valor={formatBRL(totalAutorizado)} />
       </div>
@@ -86,9 +136,8 @@ export default function NotasFiscais() {
         </div>
       </div>
 
-      {/* Lista */}
+      {/* Lista de notas geradas */}
       <div className="mt-5 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
-        {/* cabeçalho (desktop) */}
         <div className="hidden grid-cols-12 gap-3 bg-cocoa-900 px-5 py-3 text-[11px] uppercase tracking-wide text-cream-100/40 md:grid">
           <span className="col-span-1">Nº</span>
           <span className="col-span-2">Tipo</span>
@@ -100,8 +149,8 @@ export default function NotasFiscais() {
 
         <AnimatePresence mode="popLayout">
           {filtradas.map((n) => {
-            const st = STATUS_NF[n.status]
-            const tp = TIPO_NF[n.tipo]
+            const st = STATUS_NF[n.status] || STATUS_NF.pendente
+            const tp = TIPO_NF[n.tipo] || TIPO_NF.nfse
             return (
               <motion.button
                 key={n.id} layout
@@ -132,10 +181,25 @@ export default function NotasFiscais() {
         {filtradas.length === 0 && (
           <div className="border-t border-cream-100/5 bg-cocoa-950/40 px-5 py-12 text-center">
             <FileText size={26} className="mx-auto text-cream-100/25" />
-            <p className="mt-3 text-sm text-cream-100/50">Nenhuma nota encontrada com esses filtros.</p>
+            <p className="mt-3 text-sm text-cream-100/50">Nenhuma nota gerada ainda. Gere a partir do bloco “Pronto para emitir”.</p>
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function GerarBotao({ faturavel, onGerar, ocupado }) {
+  const [tp, setTp] = useState('nfse')
+  return (
+    <div className="flex items-center gap-1.5">
+      <select value={tp} onChange={(e) => setTp(e.target.value)} className="appearance-none rounded-lg bg-cocoa-900 px-2 py-1.5 text-[11px] text-cream-100/70 outline-none ring-1 ring-cream-100/10">
+        <option value="nfse">NFS-e</option>
+        <option value="nfe">NF-e</option>
+      </select>
+      <button onClick={() => onGerar(faturavel, tp)} disabled={ocupado} className="btn-light !py-2 !px-3 text-xs disabled:opacity-50">
+        {ocupado ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />} Gerar nota
+      </button>
     </div>
   )
 }
@@ -153,12 +217,21 @@ function Resumo({ icon: Icon, cor, label, valor, alerta }) {
 // ---------------------------------------------------------------------
 //  Detalhe da nota
 // ---------------------------------------------------------------------
-function DetalheNota({ nota, onVoltar }) {
-  const st = STATUS_NF[nota.status]
-  const tp = TIPO_NF[nota.tipo]
-  const temArquivos = nota.status === 'autorizada' || nota.status === 'cancelada'
-  const podeReemitir = nota.status === 'rejeitada'
-  const podeCancelar = nota.status === 'autorizada'
+function DetalheNota({ nota, onVoltar, onEmitir, onReverter, onCancelar, onExcluir }) {
+  const st = STATUS_NF[nota.status] || STATUS_NF.pendente
+  const tp = TIPO_NF[nota.tipo] || TIPO_NF.nfse
+  const temArquivos = !!(nota.pdf || nota.xml)
+  const gerada = nota.status === 'pendente' // gerada, aguardando emissão real
+  const podeEmitir = ['pendente', 'processando', 'rejeitada'].includes(nota.status)
+  const emitida = nota.status === 'autorizada'
+  const podeExcluir = ['pendente', 'rejeitada', 'cancelada'].includes(nota.status)
+  const [numero, setNumero] = useState('')
+  const [ocupado, setOcupado] = useState(false)
+
+  const emitir = async () => { setOcupado(true); await onEmitir(nota.id, numero); setOcupado(false) }
+  const reverter = async () => { setOcupado(true); await onReverter(nota.id); setOcupado(false) }
+  const cancelar = async () => { if (!window.confirm('Cancelar esta nota (estorno/devolução)? O pagamento volta para a fila “Pronto para emitir”.')) return; setOcupado(true); await onCancelar(nota.id); setOcupado(false) }
+  const excluir = async () => { if (!window.confirm('Excluir esta nota? Some de vez e o pagamento volta para “Pronto para emitir”.')) return; await onExcluir(nota.id) }
 
   return (
     <div>
@@ -183,6 +256,17 @@ function DetalheNota({ nota, onVoltar }) {
         </div>
       </div>
 
+      {/* gerada, aguardando emissão real (sem Focus NFe ainda) */}
+      {gerada && (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl bg-sky-500/10 p-4 ring-1 ring-sky-400/25">
+          <Clock size={18} className="mt-0.5 shrink-0 text-sky-300" />
+          <div>
+            <p className="text-sm font-medium text-sky-200">Nota gerada — aguardando emissão</p>
+            <p className="text-sm text-cream-100/70">Está vinculada ao pagamento, sem redigitar. A emissão fiscal real entra com a Focus NFe; por ora, registre o número manualmente em “Marcar como emitida”.</p>
+          </div>
+        </div>
+      )}
+
       {/* erro destacado */}
       {nota.motivoErro && nota.status === 'rejeitada' && (
         <div className="mt-5 flex items-start gap-3 rounded-2xl bg-terracotta-500/10 p-4 ring-1 ring-terracotta-400/25">
@@ -202,25 +286,33 @@ function DetalheNota({ nota, onVoltar }) {
         <Campo label="Tipo de nota" valor={`${tp.label} (${tp.sub})`} />
       </div>
 
+      {/* emissão manual (rastreio até a Focus NFe conectar) */}
+      {podeEmitir && (
+        <div className="mt-6 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
+          <p className="text-sm font-medium text-cream-100">Registrar emissão (manual)</p>
+          <p className="mt-1 text-xs text-cream-100/50">Enquanto a Focus NFe não está conectada, registre aqui o número da nota emitida no portal da prefeitura.</p>
+          <div className="mt-3 flex flex-wrap gap-2.5">
+            <input value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Nº da nota (opcional)" className="flex-1 rounded-xl bg-cocoa-950 px-4 py-2.5 text-sm text-cream-100 outline-none ring-1 ring-cream-100/10 placeholder:text-cream-100/30 focus:ring-terracotta-400/40" />
+            <button onClick={emitir} disabled={ocupado} className="btn-light !py-2.5 text-xs disabled:opacity-50">{ocupado ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Marcar como emitida</button>
+          </div>
+        </div>
+      )}
+
       {/* ações */}
       <div className="mt-6 flex flex-wrap gap-3">
         {temArquivos && (
           <>
-            <BotaoAcao icon={Download} onClick={() => {}}>Baixar PDF</BotaoAcao>
-            <BotaoAcao icon={FileCode2} onClick={() => {}}>Baixar XML</BotaoAcao>
-            <BotaoAcao icon={Mail} onClick={() => {}}>Reenviar por e-mail</BotaoAcao>
+            {nota.pdf && <a href={nota.pdf} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-cocoa-800 px-4 py-2.5 text-xs text-cream-100 ring-1 ring-cream-100/15 transition hover:bg-cocoa-950"><Download size={15} /> Baixar PDF</a>}
+            {nota.xml && <a href={nota.xml} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-cocoa-800 px-4 py-2.5 text-xs text-cream-100 ring-1 ring-cream-100/15 transition hover:bg-cocoa-950"><FileCode2 size={15} /> Baixar XML</a>}
           </>
         )}
-        {podeReemitir && (
-          <BotaoAcao icon={RotateCcw} onClick={() => {}} destaque>Reemitir nota</BotaoAcao>
-        )}
-        {podeCancelar && (
-          <BotaoAcao icon={Ban} onClick={() => {}} perigo>Cancelar nota</BotaoAcao>
-        )}
+        {emitida && <BotaoAcao icon={RotateCcw} onClick={reverter} ocupado={ocupado}>Desfazer emissão</BotaoAcao>}
+        {emitida && <BotaoAcao icon={Ban} onClick={cancelar} ocupado={ocupado} perigo>Cancelar nota (estorno)</BotaoAcao>}
+        {podeExcluir && <BotaoAcao icon={Trash2} onClick={excluir} perigo>Excluir nota</BotaoAcao>}
       </div>
 
       <p className="mt-6 rounded-xl bg-cocoa-900 p-4 text-xs text-cream-100/40 ring-1 ring-cream-100/10">
-        Demo: os botões de download e ações ficam ativos quando o backend de emissão (Focus NFe) estiver conectado.
+        Errou ou precisa estornar? <strong>Desfazer emissão</strong> volta a nota para “gerada”; <strong>Cancelar</strong> faz o estorno (o pagamento volta para “Pronto para emitir”). Os arquivos (PDF/XML) e a emissão automática entram com a <strong>Focus NFe</strong>.
       </p>
     </div>
   )
@@ -235,16 +327,16 @@ function Campo({ label, valor, mono }) {
   )
 }
 
-function BotaoAcao({ icon: Icon, children, onClick, destaque, perigo }) {
-  const base = 'inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs transition ring-1 '
+function BotaoAcao({ icon: Icon, children, onClick, destaque, perigo, ocupado }) {
+  const base = 'inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-xs transition ring-1 disabled:opacity-50 '
   const cls = perigo
     ? 'bg-terracotta-500/10 text-terracotta-300 ring-terracotta-400/30 hover:bg-terracotta-500/20'
     : destaque
     ? 'bg-terracotta-500 text-cream-50 ring-transparent hover:bg-terracotta-600'
     : 'bg-cocoa-800 text-cream-100 ring-cream-100/15 hover:bg-cocoa-950'
   return (
-    <button onClick={onClick} className={base + cls}>
-      <Icon size={15} /> {children}
+    <button onClick={onClick} disabled={ocupado} className={base + cls}>
+      {ocupado ? <Loader2 size={15} className="animate-spin" /> : <Icon size={15} />} {children}
     </button>
   )
 }

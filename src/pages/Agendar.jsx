@@ -2,24 +2,26 @@ import { useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Check, ArrowRight, ArrowLeft, Calendar, Clock, User, Mail, Phone,
-  CreditCard, QrCode, ShieldCheck, PartyPopper, Camera, Copy,
+  Check, ArrowRight, ArrowLeft, Clock, User, Mail, Phone,
+  CreditCard, QrCode, ShieldCheck, Camera, Copy,
 } from 'lucide-react'
 import PageHero from '../components/PageHero'
 import { formatBRL } from '../components/Money'
-import { PACOTES, SERVICOS } from '../data/studio'
+import { SERVICOS } from '../data/studio'
 import { useApp } from '../context/AppContext'
 
-const STEPS = ['Pacote', 'Data & Hora', 'Seus dados', 'Reserva', 'Pronto']
-const HORARIOS = ['09:00', '10:30', '14:00', '15:30', '17:00']
+const STEPS = ['Ensaio', 'Data & Hora', 'Seus dados', 'Reserva', 'Pronto']
+// Sinal fixo único para garantir a data (placeholder até o Maurício confirmar;
+// no futuro vem de config_estudio.sinal_reserva). NÃO é o preço do ensaio —
+// o valor é definido em orçamento personalizado, na conversa ("preço sob consulta").
+const SINAL = 100
 
 export default function Agendar() {
   const [params] = useSearchParams()
   const { adicionarAgendamento } = useApp()
   const [step, setStep] = useState(0)
   const [data, setData] = useState({
-    pacote: params.get('pacote') || 'memorias',
-    servico: 'familia',
+    servico: params.get('servico') || (SERVICOS[0] && SERVICOS[0].id) || 'gestante',
     dia: '',
     hora: '',
     nome: '',
@@ -28,14 +30,14 @@ export default function Agendar() {
     pagamento: 'pix',
   })
 
-  const pacoteSel = PACOTES.find((p) => p.id === data.pacote) || PACOTES[1]
+  const servicoSel = SERVICOS.find((s) => s.id === data.servico) || SERVICOS[0]
   const set = (k, v) => setData((d) => ({ ...d, [k]: v }))
 
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep((s) => Math.max(s - 1, 0))
 
   const podeAvancar = () => {
-    if (step === 0) return !!data.pacote && !!data.servico
+    if (step === 0) return !!data.servico
     if (step === 1) return !!data.dia && !!data.hora
     if (step === 2) return data.nome.trim() && data.email.includes('@') && data.telefone.length >= 8
     return true
@@ -44,9 +46,9 @@ export default function Agendar() {
   const finalizar = () => {
     adicionarAgendamento({
       ...data,
-      pacoteNome: pacoteSel.nome,
-      valorReserva: pacoteSel.reserva,
-      valorTotal: pacoteSel.preco,
+      pacoteNome: servicoSel ? servicoSel.nome : '',
+      valorReserva: SINAL,
+      valorTotal: 0, // preço sob consulta — definido no orçamento personalizado
       status: 'reserva-paga',
     })
     next()
@@ -55,11 +57,11 @@ export default function Agendar() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
       <PageHero
-        n="05"
+        n="04"
         eyebrow="Agendamento online"
         titulo="Garanta a sua"
         destaque="data agora"
-        sub="Em poucos passos você escolhe o pacote, marca o melhor horário e reserva. Simples assim."
+        sub="Escolha o ensaio, marque o melhor horário e garanta a data com um sinal. O valor é apresentado em um orçamento feito sob medida pra você."
         gradient="ph-gradient-3"
       />
 
@@ -101,11 +103,11 @@ export default function Agendar() {
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                {step === 0 && <StepPacote data={data} set={set} />}
+                {step === 0 && <StepEnsaio data={data} set={set} />}
                 {step === 1 && <StepData data={data} set={set} />}
                 {step === 2 && <StepDados data={data} set={set} />}
-                {step === 3 && <StepReserva data={data} set={set} pacote={pacoteSel} />}
-                {step === 4 && <StepPronto data={data} pacote={pacoteSel} />}
+                {step === 3 && <StepReserva data={data} set={set} servico={servicoSel} />}
+                {step === 4 && <StepPronto data={data} servico={servicoSel} />}
               </motion.div>
             </AnimatePresence>
 
@@ -127,7 +129,7 @@ export default function Agendar() {
                   </button>
                 ) : (
                   <button onClick={finalizar} className="btn-primary">
-                    <ShieldCheck size={16} /> Confirmar reserva de {formatBRL(pacoteSel.reserva)}
+                    <ShieldCheck size={16} /> Garantir minha data · sinal {formatBRL(SINAL)}
                   </button>
                 )}
               </div>
@@ -145,47 +147,25 @@ export default function Agendar() {
   )
 }
 
-/* ---- Passo 1: Pacote + serviço ---- */
-function StepPacote({ data, set }) {
+/* ---- Passo 1: Tipo de ensaio (sem preço) ---- */
+function StepEnsaio({ data, set }) {
   return (
     <div>
       <h2 className="font-serif text-2xl text-cocoa-800">Qual ensaio você deseja?</h2>
+      <p className="mt-1 text-sm text-cocoa-500">Escolha o tipo de ensaio. O valor é definido em um orçamento personalizado, na conversa.</p>
       <div className="mt-5 grid gap-2.5 sm:grid-cols-2">
         {SERVICOS.map((s) => (
           <button
             key={s.id}
             onClick={() => set('servico', s.id)}
-            className={`rounded-xl border px-4 py-3 text-left text-sm transition-all ${
+            className={`rounded-xl border p-4 text-left transition-all ${
               data.servico === s.id
-                ? 'border-cocoa-800 bg-cocoa-800 text-cream-50'
-                : 'border-cocoa-800/10 bg-cream-100 text-cocoa-700 hover:border-clay-400'
-            }`}
-          >
-            {s.nome}
-          </button>
-        ))}
-      </div>
-
-      <h2 className="mt-8 font-serif text-2xl text-cocoa-800">Escolha o pacote</h2>
-      <div className="mt-5 space-y-3">
-        {PACOTES.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => set('pacote', p.id)}
-            className={`flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all ${
-              data.pacote === p.id
                 ? 'border-cocoa-800 bg-cocoa-800/5 ring-1 ring-cocoa-800'
                 : 'border-cocoa-800/10 hover:border-clay-400'
             }`}
           >
-            <div>
-              <p className="font-serif text-lg text-cocoa-800">{p.nome}</p>
-              <p className="text-xs text-clay-500">{p.ideal}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-serif text-xl text-cocoa-800">{formatBRL(p.preco)}</p>
-              <p className="text-xs text-cocoa-500">reserva {formatBRL(p.reserva)}</p>
-            </div>
+            <p className="font-serif text-lg text-cocoa-800">{s.nome}</p>
+            {s.resumo && <p className="mt-0.5 text-xs text-clay-500">{s.resumo}</p>}
           </button>
         ))}
       </div>
@@ -275,7 +255,7 @@ function StepDados({ data, set }) {
   return (
     <div>
       <h2 className="font-serif text-2xl text-cocoa-800">Seus dados de contato</h2>
-      <p className="mt-1 text-sm text-cocoa-500">Para confirmarmos seu agendamento.</p>
+      <p className="mt-1 text-sm text-cocoa-500">Para confirmarmos seu agendamento e enviarmos o orçamento.</p>
       <div className="mt-6 space-y-5">
         <label className="block">
           <span className="flex items-center gap-2 text-sm font-medium text-cocoa-700"><User size={15} /> Nome completo</span>
@@ -294,37 +274,37 @@ function StepDados({ data, set }) {
   )
 }
 
-/* ---- Passo 4: Reserva / pagamento ---- */
-function StepReserva({ data, set, pacote }) {
+/* ---- Passo 4: Reserva / sinal (sem preço do pacote) ---- */
+function StepReserva({ data, set, servico }) {
   const dataFmt = data.dia ? new Date(data.dia + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : ''
   return (
     <div>
-      <h2 className="font-serif text-2xl text-cocoa-800">Confirme e reserve</h2>
+      <h2 className="font-serif text-2xl text-cocoa-800">Confirme e garanta a data</h2>
 
       {/* Resumo */}
       <div className="mt-5 rounded-2xl bg-cream-200 p-5">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-cocoa-500">Pacote</span>
-          <span className="font-medium text-cocoa-800">{pacote.nome}</span>
+          <span className="text-cocoa-500">Ensaio</span>
+          <span className="font-medium text-cocoa-800">{servico ? servico.nome : '—'}</span>
         </div>
         <div className="mt-2 flex items-center justify-between text-sm">
           <span className="text-cocoa-500">Data & hora</span>
           <span className="font-medium capitalize text-cocoa-800">{dataFmt} · {data.hora}</span>
         </div>
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="text-cocoa-500">Valor total do pacote</span>
-          <span className="font-medium text-cocoa-800">{formatBRL(pacote.preco)}</span>
+          <span className="text-cocoa-500">Investimento</span>
+          <span className="font-medium text-cocoa-800">sob consulta</span>
         </div>
         <div className="my-3 border-t border-cocoa-800/10" />
         <div className="flex items-center justify-between">
-          <span className="font-medium text-cocoa-800">Reserva a pagar agora</span>
-          <span className="font-serif text-2xl text-terracotta-500">{formatBRL(pacote.reserva)}</span>
+          <span className="font-medium text-cocoa-800">Sinal para garantir a data</span>
+          <span className="font-serif text-2xl text-terracotta-500">{formatBRL(SINAL)}</span>
         </div>
-        <p className="mt-1 text-xs text-cocoa-400">Restante de {formatBRL(pacote.preco - pacote.reserva)} no dia do ensaio.</p>
+        <p className="mt-1 text-xs text-cocoa-400">O valor do ensaio é definido em um orçamento personalizado, na conversa. Este sinal garante a sua data e é abatido do valor final.</p>
       </div>
 
       {/* Método */}
-      <h3 className="mt-7 font-medium text-cocoa-700">Forma de pagamento da reserva</h3>
+      <h3 className="mt-7 font-medium text-cocoa-700">Forma de pagamento do sinal</h3>
       <div className="mt-3 grid grid-cols-2 gap-3">
         {[
           { id: 'pix', label: 'PIX', icon: QrCode },
@@ -374,7 +354,7 @@ function StepReserva({ data, set, pacote }) {
 }
 
 /* ---- Passo 5: Sucesso ---- */
-function StepPronto({ data, pacote }) {
+function StepPronto({ data, servico }) {
   const dataFmt = data.dia ? new Date(data.dia + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : ''
   return (
     <div className="py-6 text-center">
@@ -386,16 +366,16 @@ function StepPronto({ data, pacote }) {
       >
         <Check size={40} />
       </motion.div>
-      <h2 className="mt-6 font-serif text-3xl text-cocoa-800">Reserva confirmada! 🎉</h2>
+      <h2 className="mt-6 font-serif text-3xl text-cocoa-800">Data garantida! 🎉</h2>
       <p className="mx-auto mt-3 max-w-md font-sans font-light text-cocoa-600">
-        Obrigado, <strong className="font-medium">{data.nome.split(' ')[0]}</strong>! Sua data está garantida.
-        Enviamos os detalhes para <strong className="font-medium">{data.email}</strong>.
+        Obrigado, <strong className="font-medium">{data.nome.split(' ')[0]}</strong>! Sua data está reservada.
+        Em breve enviamos o seu orçamento personalizado para <strong className="font-medium">{data.email}</strong>.
       </p>
       <div className="mx-auto mt-7 max-w-sm rounded-2xl bg-cream-200 p-5 text-left text-sm">
-        <Row k="Ensaio" v={pacote.nome} />
+        <Row k="Ensaio" v={servico ? servico.nome : '—'} />
         <Row k="Quando" v={`${dataFmt} · ${data.hora}`} />
-        <Row k="Reserva paga" v={formatBRL(pacote.reserva)} />
-        <Row k="A pagar no dia" v={formatBRL(pacote.preco - pacote.reserva)} />
+        <Row k="Sinal pago" v={formatBRL(SINAL)} />
+        <Row k="Valor do ensaio" v="orçamento personalizado" />
       </div>
       <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
         <Link to="/cliente" className="btn-primary"><Camera size={16} /> Ir para Área do Cliente</Link>

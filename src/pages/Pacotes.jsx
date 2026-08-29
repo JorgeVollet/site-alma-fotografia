@@ -4,7 +4,7 @@ import { Check, ArrowUpRight, Camera, Plus } from 'lucide-react'
 import PageHero from '../components/PageHero'
 import Reveal from '../components/Reveal'
 import { formatBRL } from '../components/Money'
-import { PACOTES } from '../data/studio'
+import { usePacotes } from '../lib/catalogo'
 
 const FAQ = [
   {
@@ -26,6 +26,7 @@ const FAQ = [
 ]
 
 export default function Pacotes() {
+  const PACOTES = usePacotes()
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}>
       <PageHero
