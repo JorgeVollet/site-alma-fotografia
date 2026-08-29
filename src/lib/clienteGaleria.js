@@ -43,6 +43,8 @@ export async function entrarGaleria(codigo, senha) {
       valorTotal: data.galeria.valor_total != null ? Number(data.galeria.valor_total) : 0,
       reserva: data.galeria.reserva != null ? Number(data.galeria.reserva) : 0,
       mensagemFotografo: data.galeria.mensagem_fotografo || '',
+      // o estúdio libera (ou não) o pagamento com cartão/PIX online nesta galeria
+      pagamentoOnline: !!data.galeria.pagamento_online,
     },
     fotos: (data.fotos || []).map(mapFotoCliente),
     entregas: (data.entregas || []).map(mapEntregaCliente),

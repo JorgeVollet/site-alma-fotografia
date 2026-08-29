@@ -109,6 +109,7 @@ function Detalhe({ galeria, onVoltar }) {
   const [marcadas, setMarcadas] = useState(() => new Set())
   const [aba, setAba] = useState('selecao') // selecao | entrega
   const [avisar, setAvisar] = useState(false)
+  const [pagOnline, setPagOnline] = useState(!!galeria.pagamentoOnline)
   const inputRef = useRef(null)
 
   const cliente = clientes.find((c) => c.id === galeria.clienteId)
@@ -157,6 +158,16 @@ function Detalhe({ galeria, onVoltar }) {
     setSalvandoConf(true)
     await atualizarGaleria(galeria.id, { senha, fotoExtra: fotoExtra === '' ? null : Number(fotoExtra) })
     setSalvandoConf(false)
+  }
+
+  // Liga/desliga o pagamento com cartão/PIX no site PARA ESTA GALERIA.
+  // Desligado (padrão), o cliente só confirma a seleção e o estúdio recebe como
+  // sempre recebeu (maquininha, PIX na mão) e lança no financeiro manualmente.
+  const trocarPagOnline = async () => {
+    const novo = !pagOnline
+    setPagOnline(novo)                                   // responde na hora
+    const r = await atualizarGaleria(galeria.id, { pagamentoOnline: novo })
+    if (!r) setPagOnline(!novo)                          // falhou: volta o botão
   }
 
   const origem = typeof window !== 'undefined' ? window.location.origin : ''
@@ -227,10 +238,33 @@ function Detalhe({ galeria, onVoltar }) {
         </button>
         <span className="text-xs text-cream-100/40">
           {aba === 'entrega'
-            ? 'Finais SEM marca d\'água, no tamanho real. O cliente baixa na aba "Minhas fotos".'
+            ? 'Suba só a foto em ALTA. O site gera sozinho a versão de 2048px p/ redes quando o cliente baixar.'
             : 'Provas com marca d\'água, redimensionadas p/ 1024px (leves).'}
         </span>
       </div>
+
+      {/* Pagamento online: decisão por galeria, na hora de entregar as fotos */}
+      {aba === 'entrega' && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cocoa-900 p-4 ring-1 ring-cream-100/10">
+          <div>
+            <p className="text-sm font-medium text-cream-100/90">Deixar o cliente pagar pelo site</p>
+            <p className="mt-0.5 text-xs text-cream-100/50">
+              {pagOnline
+                ? 'Ligado: aparece "Pagar agora" (cartão/PIX) ao enviar a seleção.'
+                : 'Desligado: o cliente só confirma a seleção e você recebe como sempre (maquininha/PIX), lançando no financeiro.'}
+            </p>
+          </div>
+          <button
+            onClick={trocarPagOnline}
+            role="switch"
+            aria-checked={pagOnline}
+            className={'relative h-7 w-12 shrink-0 rounded-full transition ' + (pagOnline ? 'bg-emerald-500' : 'bg-cocoa-700 ring-1 ring-cream-100/15')}
+            title={pagOnline ? 'Desligar pagamento pelo site' : 'Ligar pagamento pelo site'}
+          >
+            <span className={'absolute top-1 h-5 w-5 rounded-full bg-cream-50 transition-all ' + (pagOnline ? 'left-6' : 'left-1')} />
+          </button>
+        </div>
+      )}
 
       {/* Observações do cliente (só seleção) */}
       {aba === 'selecao' && comObs.length > 0 && (

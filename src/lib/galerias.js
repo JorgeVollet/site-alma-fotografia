@@ -1,6 +1,7 @@
 // Camada de dados de GALERIAS + FOTOS (Bloco 4A). Só a equipe (authenticated).
 import { supabase } from './supabase'
 import { gerarVersoes, uploadFotoVersoes, gerarEntrega, uploadEntrega } from './storage'
+import { fetchConfig } from './config'
 
 export function mapGaleria(row) {
   return {
@@ -16,6 +17,7 @@ export function mapGaleria(row) {
     clienteNome: row.cliente?.nome || '',
     ensaioTitulo: row.ensaio?.titulo || '',
     mensagemFotografo: row.mensagem_fotografo || '',
+    pagamentoOnline: !!row.pagamento_online,
     totalFotos: Array.isArray(row.fotos) ? (row.fotos[0]?.count ?? 0) : 0,
     criadoEm: row.created_at,
   }
@@ -47,6 +49,9 @@ export async function fetchGalerias() {
 }
 
 export async function criarGaleria(campos) {
+  // Galeria nova nasce com o padrão do estúdio; o toggle da aba "Entrega"
+  // sobrepõe caso a caso (o Maurício decide cliente a cliente).
+  const cfg = await fetchConfig()
   const payload = {
     ensaio_id: campos.ensaioId || null,
     cliente_id: campos.clienteId || null,
@@ -57,6 +62,7 @@ export async function criarGaleria(campos) {
     foto_extra: campos.fotoExtra ?? null,
     valor_total: campos.valorTotal ?? 0,
     reserva: campos.reserva ?? 0,
+    pagamento_online: campos.pagamentoOnline ?? cfg?.pagamentoOnlinePadrao ?? false,
   }
   const { data, error } = await supabase.from('galerias').insert(payload).select().single()
   if (error) { console.warn('[galerias] criar falhou:', error.message); return null }
@@ -71,6 +77,7 @@ export async function atualizarGaleria(id, campos) {
   if ('status' in campos) col.status = campos.status
   if ('fotosInclusas' in campos) col.fotos_inclusas = campos.fotosInclusas
   if ('mensagemFotografo' in campos) col.mensagem_fotografo = campos.mensagemFotografo
+  if ('pagamentoOnline' in campos) col.pagamento_online = !!campos.pagamentoOnline
   const { data, error } = await supabase.from('galerias').update(col).eq('id', id).select().single()
   if (error) { console.warn('[galerias] atualizar falhou:', error.message); return null }
   return mapGaleria(data)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { BookText } from 'lucide-react'
-import { SecaoIntro, SecaoVisao, SecaoFotos, SecaoSelecoes, SecaoGalerias, SecaoPortfolio, SecaoNotasFiscais, SecaoAgenda, SecaoWorkflow } from './manual/secoesA'
+import { SecaoIntro, SecaoVisao, SecaoFotos, SecaoSelecoes, SecaoGalerias, SecaoPortfolio, SecaoAgenda, SecaoWorkflow } from './manual/secoesA'
 import { SecaoClientesFunil, SecaoContratos, SecaoTarefas, SecaoFinanceiro, SecaoContas, SecaoFluxoDRE, SecaoRelatorios, SecaoWhatsApp, SecaoCosturas } from './manual/secoesB'
 
 const INDICE = [
@@ -11,18 +11,17 @@ const INDICE = [
   { id: 'selecoes', label: '4. Seleções e pagamento' },
   { id: 'galerias', label: '5. Galerias' },
   { id: 'portfolio', label: '6. Portfólio' },
-  { id: 'notas', label: '7. Notas fiscais' },
-  { id: 'agenda', label: '8. Agenda' },
-  { id: 'workflow', label: '9. Fluxo de trabalho' },
-  { id: 'clientes', label: '10. Clientes e Funil' },
-  { id: 'contratos', label: '11. Contratos' },
-  { id: 'tarefas', label: '12. Tarefas' },
-  { id: 'financeiro', label: '13. Lançamentos' },
-  { id: 'contas', label: '14. Contas a pagar/receber' },
-  { id: 'fluxo', label: '15. Fluxo de caixa e DRE' },
-  { id: 'relatorios', label: '16. Relatórios' },
-  { id: 'whatsapp', label: '17. Integrações e WhatsApp' },
-  { id: 'costuras', label: '18. Conexões entre módulos' },
+  { id: 'agenda', label: '7. Agenda' },
+  { id: 'workflow', label: '8. Fluxo de trabalho' },
+  { id: 'clientes', label: '9. Clientes e Funil' },
+  { id: 'contratos', label: '10. Contratos' },
+  { id: 'tarefas', label: '11. Tarefas' },
+  { id: 'financeiro', label: '12. Lançamentos' },
+  { id: 'contas', label: '13. Contas a pagar/receber' },
+  { id: 'fluxo', label: '14. Fluxo de caixa e DRE' },
+  { id: 'relatorios', label: '15. Relatórios' },
+  { id: 'whatsapp', label: '16. Integrações e WhatsApp' },
+  { id: 'costuras', label: '17. Conexões entre módulos' },
 ]
 
 export default function Manual() {
@@ -64,7 +63,7 @@ export default function Manual() {
           <SecaoSelecoes />
           <SecaoGalerias />
           <SecaoPortfolio />
-          <SecaoNotasFiscais />
+          {/* Notas fiscais adiadas (reforma tributária 2027) — seção oculta junto com o módulo */}
           <SecaoAgenda />
           <SecaoWorkflow />
           <SecaoClientesFunil />

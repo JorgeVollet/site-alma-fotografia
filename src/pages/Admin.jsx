@@ -127,13 +127,19 @@ function AdminLogin() {
   )
 }
 
+// Nota fiscal ADIADA (decisão do Maurício, ago/2026): a reforma tributária de
+// 2027 muda as regras, e por ora ele emite pela maquininha. O módulo continua
+// pronto no código (NotasFiscais.jsx + migrations 12/14) — para religar, basta
+// voltar esta flag para true.
+const NF_ATIVA = false
+
 const NAV = [
   { sep: true, label: 'Operação' },
   { id: 'visao', label: 'Visão geral', icon: LayoutDashboard },
   { id: 'selecoes', label: 'Seleções', icon: ImageIcon },
   { id: 'galerias', label: 'Galerias', icon: FolderOpen },
   { id: 'portfolio', label: 'Portfólio', icon: Images },
-  { id: 'notas', label: 'Notas fiscais', icon: FileText },
+  ...(NF_ATIVA ? [{ id: 'notas', label: 'Notas fiscais', icon: FileText }] : []),
   { id: 'agenda', label: 'Agenda', icon: Calendar },
   { id: 'workflow', label: 'Fluxo de trabalho', icon: WfIcon },
   { id: 'diagramador', label: 'Diagramador de álbuns', icon: BookOpen },
@@ -224,7 +230,7 @@ function Dashboard({ email, onLogout }) {
               {tab === 'selecoes' && <Selecoes />}
               {tab === 'galerias' && <Galerias />}
               {tab === 'portfolio' && <PortfolioAdmin />}
-              {tab === 'notas' && <NotasFiscais />}
+              {tab === 'notas' && NF_ATIVA && <NotasFiscais />}
               {tab === 'agenda' && <Agenda />}
               {tab === 'workflow' && <Workflow />}
               {tab === 'diagramador' && <Diagramador />}

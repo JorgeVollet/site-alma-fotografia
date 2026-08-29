@@ -85,7 +85,7 @@ function Hero() {
                 <span className="font-sans text-xs">{STUDIO.googleNota} · {STUDIO.googleQtd} no Google</span>
               </div>
               <Link to="/agendar" className="btn-light !py-3 text-xs">
-                Agendar ensaio <ArrowUpRight size={15} />
+                Quero meu ensaio <ArrowUpRight size={15} />
               </Link>
             </div>
           </div>
@@ -234,7 +234,7 @@ function IndiceServicosMobile() {
                         </ul>
                         <div className="mt-6 flex flex-col gap-3">
                           <Link to={`/servicos#${s.id}`} className="inline-flex items-center gap-2 text-sm text-cream-100 link-underline">Ver página de {s.nome} <ArrowRight size={15} /></Link>
-                          <Link to="/agendar" className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">Agendar {s.nome} <ArrowUpRight size={15} /></Link>
+                          <Link to="/agendar" className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">Quero este ensaio <ArrowUpRight size={15} /></Link>
                         </div>
                       </div>
                     </motion.div>
@@ -359,7 +359,7 @@ function ServicoFase({ s, i, total, progress }) {
               Ver página de {s.nome} <ArrowRight size={15} />
             </Link>
             <Link to="/agendar" className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">
-              Agendar {s.nome} <ArrowUpRight size={15} />
+              Quero este ensaio <ArrowUpRight size={15} />
             </Link>
           </div>
         </div>
@@ -540,7 +540,7 @@ function CTAEditorial() {
         <Reveal delay={0.2}>
           <div className="mt-10 flex flex-col items-start gap-5 border-t border-cream-100/15 pt-8 sm:flex-row sm:items-center">
             <Link to="/agendar" className="btn-blush">
-              Agendar meu ensaio <ArrowUpRight size={16} />
+              Quero meu ensaio <ArrowUpRight size={16} />
             </Link>
             <Link to="/servicos" className="inline-flex items-center gap-2 text-sm text-cream-100/70 link-underline">
               <Plus size={15} /> Conheça nossos ensaios

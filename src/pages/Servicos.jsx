@@ -90,7 +90,7 @@ export default function Servicos() {
                           <MessageCircle size={15} /> Falar no WhatsApp
                         </a>
                         <Link to={`/agendar?servico=${s.id}`} className="inline-flex items-center gap-2 text-sm text-clay-400 link-underline">
-                          Agendar minha data <ArrowUpRight size={15} />
+                          Quero este ensaio <ArrowUpRight size={15} />
                         </Link>
                       </div>
                     </div>
@@ -115,7 +115,7 @@ export default function Servicos() {
           <div className="mt-12 grid gap-x-8 gap-y-12 md:grid-cols-3">
                         {EQUIPE.map((m, i) => (
               <Reveal key={m.nome} delay={i * 0.12}>
-                <CardEquipe m={m} i={i} cta="Agendar ensaio" to="/agendar" />
+                <CardEquipe m={m} i={i} cta="Falar com a gente" to="/agendar" />
               </Reveal>
             ))}
           </div>
@@ -129,7 +129,7 @@ export default function Servicos() {
             <h2 className="display text-4xl md:text-6xl">Encontrou o ensaio <span className="italic text-clay-300">perfeito?</span></h2>
           </Reveal>
           <Reveal delay={0.1}>
-            <Link to="/agendar" className="btn-blush mt-8"><Camera size={16} /> Agendar agora <ArrowRight size={15} /></Link>
+            <Link to="/agendar" className="btn-blush mt-8"><Camera size={16} /> Quero meu ensaio <ArrowRight size={15} /></Link>
           </Reveal>
         </div>
       </section>

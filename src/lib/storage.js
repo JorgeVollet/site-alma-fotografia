@@ -120,6 +120,31 @@ export async function uploadEntrega(galeriaId, fotoId, versoes) {
   }
 }
 
+// ── VERSÃO PARA REDES SOCIAIS (gerada na HORA DO DOWNLOAD) ──
+// O estúdio sobe só a foto em ALTA (uma exportação só, sem trabalho dobrado).
+// Quando o cliente pede "para redes", o navegador DELE gera a cópia menor.
+//
+// Por que isso resolve a "cor estranha" no Instagram: o app recomprime tudo que
+// chega grande demais e força o perfil sRGB — fotos em Adobe RGB/ProPhoto saem
+// dessaturadas. Entregando já em 2048px e sRGB (o canvas converte ao decodificar),
+// o Instagram praticamente não mexe na imagem. (DPI não conta: na tela vale o pixel.)
+export const LADO_WEB = 2048
+
+export async function gerarVersaoWeb(arquivoOuBlob, maxLado = LADO_WEB) {
+  const bmp = await carregarBitmap(arquivoOuBlob)
+  const { canvas } = redimensionar(bmp, maxLado)   // nunca amplia; só reduz
+  const out = await paraBlob(canvas, 0.9)          // qualidade alta p/ publicar
+  if (bmp.close) bmp.close()
+  return out
+}
+
+// "retrato.jpg" -> "retrato-redes.jpg" (o cliente não confunde os dois arquivos)
+export function nomeVersaoWeb(nome) {
+  const base = nome || 'foto.jpg'
+  const p = base.lastIndexOf('.')
+  return p > 0 ? `${base.slice(0, p)}-redes.jpg` : `${base}-redes.jpg`
+}
+
 // URL pública do bucket de PREVIEWS (seleção, com marca d'água).
 export function urlPublica(path) {
   if (!path) return null

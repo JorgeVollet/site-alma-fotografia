@@ -11,6 +11,7 @@ import { formatBRL } from '../components/Money'
 import Photo from '../components/Photo'
 import AssinaturaJV from '../components/AssinaturaJV'
 import { entrarGaleria, salvarSelecaoFoto, finalizarSelecao, reenviarSelecao } from '../lib/clienteGaleria'
+import { gerarVersaoWeb, nomeVersaoWeb, LADO_WEB } from '../lib/storage'
 
 export default function AreaCliente() {
   const [sessao, setSessao] = useState(null) // { token, galeria, fotos }
@@ -141,27 +142,45 @@ function Galeria({ sessao, onSair }) {
   const onEnviar = () => { if (jaEnviou) reenviar(); else setPagModal(true) }
 
   // Download das finais (fetch do blob p/ forçar o download mesmo cross-origin).
-  const baixar = async (f) => {
+  //
+  // modo 'alta'  = o arquivo como o estúdio entregou (impressão, arquivo pessoal)
+  // modo 'redes' = cópia de 2048px em sRGB gerada AQUI, no navegador do cliente.
+  // O estúdio exporta e sobe UMA vez só; quem faz a versão de publicar é o site.
+  const baixarBlob = (blob, nome) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = nome; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 4000)
+  }
+
+  const baixar = async (f, modo = 'alta') => {
     try {
       const res = await fetch(f.fullUrl)
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url; a.download = f.nome || 'foto.jpg'; a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 4000)
+      if (modo === 'redes') {
+        const web = await gerarVersaoWeb(blob)
+        baixarBlob(web, nomeVersaoWeb(f.nome))
+      } else {
+        baixarBlob(blob, f.nome || 'foto.jpg')
+      }
     } catch (e) { window.open(f.fullUrl, '_blank', 'noopener') }
   }
+
   // Baixa TODAS as finais num único .zip (JSZip, no navegador).
-  const baixarTodas = async () => {
+  const baixarTodas = async (modo = 'alta') => {
     if (!entregas.length) return
-    setBaixandoTodas(true)
+    setBaixandoTodas(modo)
     try {
       const zip = new JSZip()
       const usados = new Set()
       for (let i = 0; i < entregas.length; i++) {
         const f = entregas[i]
         const res = await fetch(f.fullUrl)
-        const blob = await res.blob()
+        let blob = await res.blob()
         let nome = f.nome || `foto-${String(i + 1).padStart(3, '0')}.jpg`
+        if (modo === 'redes') {
+          blob = await gerarVersaoWeb(blob)
+          nome = nomeVersaoWeb(nome)
+        }
         if (usados.has(nome)) {
           const p = nome.lastIndexOf('.')
           nome = p > 0 ? `${nome.slice(0, p)}-${i + 1}${nome.slice(p)}` : `${nome}-${i + 1}`
@@ -170,15 +189,11 @@ function Galeria({ sessao, onSair }) {
         zip.file(nome, blob)
       }
       const conteudo = await zip.generateAsync({ type: 'blob' })
-      const url = URL.createObjectURL(conteudo)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${(galeria.nome || 'fotos').replace(/[^\w\- ]+/g, '').trim() || 'fotos'}.zip`
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 6000)
+      const base = (galeria.nome || 'fotos').replace(/[^\w\- ]+/g, '').trim() || 'fotos'
+      baixarBlob(conteudo, `${base}${modo === 'redes' ? '-redes' : ''}.zip`)
     } catch (e) {
       console.warn('[entrega] zip falhou, baixando individual', e)
-      for (const f of entregas) await baixar(f)
+      for (const f of entregas) await baixar(f, modo)
     }
     setBaixandoTodas(false)
   }
@@ -225,19 +240,44 @@ function Galeria({ sessao, onSair }) {
       {aba === 'entrega' ? (
         /* ----- ENTREGA: baixar as finais ----- */
         <div className="mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-cocoa-600">{entregas.length} foto(s) prontas — sem marca d'água, no tamanho original.</p>
-            <button onClick={baixarTodas} disabled={baixandoTodas} className="btn-primary !py-2 text-xs disabled:opacity-50">
-              {baixandoTodas ? <><Loader2 size={14} className="animate-spin" /> Preparando o .zip…</> : <><Download size={14} /> Baixar todas (.zip)</>}
-            </button>
+          <p className="text-sm text-cocoa-600">{entregas.length} foto(s) prontas, sem marca d'água. Escolha como quer baixar:</p>
+
+          {/* Duas versões da MESMA foto: a original e a otimizada pra publicar */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl bg-cream-50 p-4 ring-1 ring-cocoa-800/10">
+              <p className="font-medium text-cocoa-800">Alta resolução</p>
+              <p className="mt-1 text-xs text-cocoa-500">Do jeitinho que revelamos. Ideal para guardar e imprimir.</p>
+              <button onClick={() => baixarTodas('alta')} disabled={!!baixandoTodas} className="btn-primary mt-3 !py-2 text-xs disabled:opacity-50">
+                {baixandoTodas === 'alta'
+                  ? <><Loader2 size={14} className="animate-spin" /> Preparando…</>
+                  : <><Download size={14} /> Baixar todas (.zip)</>}
+              </button>
+            </div>
+            <div className="rounded-2xl bg-clay-500/10 p-4 ring-1 ring-clay-500/25">
+              <p className="flex items-center gap-1.5 font-medium text-cocoa-800"><Sparkles size={15} className="text-clay-500" /> Para redes sociais</p>
+              <p className="mt-1 text-xs text-cocoa-500">
+                {LADO_WEB}px, prontinha para o Instagram — publique sem aquela perda de cor.
+              </p>
+              <button onClick={() => baixarTodas('redes')} disabled={!!baixandoTodas} className="btn-primary mt-3 !py-2 text-xs disabled:opacity-50">
+                {baixandoTodas === 'redes'
+                  ? <><Loader2 size={14} className="animate-spin" /> Preparando…</>
+                  : <><Download size={14} /> Baixar todas (.zip)</>}
+              </button>
+            </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {entregas.map((f) => (
               <div key={f.id} className="group relative overflow-hidden rounded-xl bg-cream-100 ring-1 ring-cocoa-800/10">
                 <Photo src={f.thumbUrl} alt="" fallback="ph-gradient-2" className="aspect-square" />
-                <button onClick={() => baixar(f)} className="absolute inset-0 grid place-items-center bg-cocoa-950/0 opacity-0 transition group-hover:bg-cocoa-950/30 group-hover:opacity-100" title="Baixar">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-cream-50 px-3 py-1.5 text-xs font-medium text-cocoa-800"><Download size={13} /> Baixar</span>
-                </button>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-cocoa-950/0 p-2 opacity-0 transition group-hover:bg-cocoa-950/45 group-hover:opacity-100">
+                  <button onClick={() => baixar(f, 'alta')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-cream-50 px-3 py-1.5 text-[11px] font-medium text-cocoa-800 hover:bg-white">
+                    <Download size={12} /> Alta resolução
+                  </button>
+                  <button onClick={() => baixar(f, 'redes')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-clay-500 px-3 py-1.5 text-[11px] font-medium text-cream-50 hover:bg-clay-600">
+                    <Sparkles size={12} /> Para redes
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -342,6 +382,7 @@ function Galeria({ sessao, onSair }) {
             saldo={saldo}
             total={total}
             finalizando={finalizando}
+            pagamentoOnline={galeria.pagamentoOnline}
             onPagar={finalizar}
             onFechar={() => !finalizando && setPagModal(false)}
           />
@@ -352,7 +393,9 @@ function Galeria({ sessao, onSair }) {
 }
 
 /* ---------------- PAGAMENTO (ao enviar a seleção) ---------------- */
-function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, finalizando, onPagar, onFechar }) {
+// pagamentoOnline: o estúdio decide, por galeria, se libera cartão/PIX no site.
+// Desligado (padrão), o cliente só confirma a seleção e acerta com o estúdio.
+function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, finalizando, pagamentoOnline, onPagar, onFechar }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onFechar} className="fixed inset-0 z-[80] flex items-center justify-center bg-cocoa-950/50 p-4">
       <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cream-50 p-7 md:p-8">
@@ -368,14 +411,18 @@ function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, final
           <div className="mt-1 flex justify-between border-t border-cocoa-800/10 pt-2 text-base"><span className="font-medium text-cocoa-700">Total</span><span className="font-serif text-xl text-clay-600">{formatBRL(total)}</span></div>
         </div>
 
-        <p className="mt-5 text-sm font-medium text-cocoa-700">Como você prefere pagar?</p>
+        <p className="mt-5 text-sm font-medium text-cocoa-700">
+          {pagamentoOnline ? 'Como você prefere pagar?' : 'Tudo certo para enviar?'}
+        </p>
         <div className="mt-3 grid gap-3">
-          <button onClick={() => onPagar(true)} disabled={finalizando} className="flex items-center justify-between rounded-2xl bg-cocoa-800 px-5 py-4 text-left text-cream-50 transition hover:bg-cocoa-900 disabled:opacity-50">
-            <span className="flex items-center gap-3"><QrCode size={20} className="text-clay-300" /><span><span className="block font-medium">Pagar agora</span><span className="block text-xs text-cream-100/60">PIX / cartão (simulado no demo)</span></span></span>
-            {finalizando ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
-          </button>
+          {pagamentoOnline && (
+            <button onClick={() => onPagar(true)} disabled={finalizando} className="flex items-center justify-between rounded-2xl bg-cocoa-800 px-5 py-4 text-left text-cream-50 transition hover:bg-cocoa-900 disabled:opacity-50">
+              <span className="flex items-center gap-3"><QrCode size={20} className="text-clay-300" /><span><span className="block font-medium">Pagar agora</span><span className="block text-xs text-cream-100/60">PIX / cartão pelo site</span></span></span>
+              {finalizando ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+            </button>
+          )}
           <button onClick={() => onPagar(false)} disabled={finalizando} className="flex items-center justify-between rounded-2xl bg-cream-100 px-5 py-4 text-left text-cocoa-800 ring-1 ring-cocoa-800/10 transition hover:bg-cream-200 disabled:opacity-50">
-            <span className="flex items-center gap-3"><CalendarClock size={20} className="text-clay-500" /><span><span className="block font-medium">Pagar em até 3 dias úteis</span><span className="block text-xs text-cocoa-500">Combinamos o pagamento com você</span></span></span>
+            <span className="flex items-center gap-3"><CalendarClock size={20} className="text-clay-500" /><span><span className="block font-medium">{pagamentoOnline ? 'Pagar em até 3 dias úteis' : 'Enviar e combinar o pagamento'}</span><span className="block text-xs text-cocoa-500">Combinamos o pagamento com você</span></span></span>
             {finalizando ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}
           </button>
         </div>

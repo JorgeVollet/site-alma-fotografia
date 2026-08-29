@@ -9,7 +9,7 @@ const NAV = [
   { to: '/', label: 'Início', n: '01' },
   { to: '/servicos', label: 'Serviços', n: '02' },
   { to: '/portfolio', label: 'Portfólio', n: '03' },
-  { to: '/agendar', label: 'Agendar', n: '04' },
+  { to: '/agendar', label: 'Fale conosco', n: '04' },
   { to: '/cliente', label: 'Área do Cliente', n: '05' },
 ]
 
@@ -131,7 +131,7 @@ export default function Header() {
                     <Instagram size={16} /> {STUDIO.instagramHandle}
                   </a>
                   <Link to="/agendar" className="btn-blush !py-2.5 text-xs">
-                    <Camera size={14} /> Agendar ensaio
+                    <Camera size={14} /> Quero meu ensaio
                   </Link>
                 </div>
               </motion.div>

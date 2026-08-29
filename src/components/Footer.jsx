@@ -54,7 +54,7 @@ export default function Footer() {
               {[
                 ['Serviços', '/servicos'],
                 ['Portfólio', '/portfolio'],
-                ['Agendar ensaio', '/agendar'],
+                ['Fale conosco', '/agendar'],
                 ['Área do Cliente', '/cliente'],
               ].map(([l, to]) => (
                 <li key={to}>
