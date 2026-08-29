@@ -65,6 +65,11 @@ export default function Visao({ setTab }) {
   const recebidoMes = lancamentos.filter((l) => l.tipo === 'entrada' && noMes(l.data)).reduce((s, l) => s + l.valor, 0)
   const aReceber = contas.filter((c) => c.status !== 'pago').reduce((s, c) => s + c.valor, 0)
   const reservasAConfirmar = agendamentos.filter((a) => a.status === 'a-confirmar' && (!a.dia || a.dia >= hoje)).length
+  // O site não marca mais horário: quem pede contato por lá vira um ensaio
+  // 'solicitado'. É ESSE o novo "me responde" — o que antes era reserva.
+  const leadsDoSite = clientes.filter((c) =>
+    (c.ensaios || []).some((e) => e.status === 'solicitado' && e.origem === 'site')
+  )
   const contasVencidas = contas.filter((c) => c.status !== 'pago' && c.vencimento && c.vencimento < hoje)
   const selParaEditar = galerias.filter((g) => g.status === 'enviado')
 
@@ -91,12 +96,13 @@ export default function Visao({ setTab }) {
     { n: contasVencidas.length, label: 'conta(s) vencida(s)', icon: AlertTriangle, tab: 'contas', cor: 'text-terracotta-400' },
     { n: selParaEditar.length, label: 'seleção(ões) p/ iniciar edição', icon: Wand2, tab: 'selecoes', cor: 'text-clay-300' },
     { n: reservasAConfirmar, label: 'reserva(s) p/ confirmar', icon: CalendarCheck, tab: 'agenda', cor: 'text-amber-300' },
+    { n: leadsDoSite.length, label: 'pedido(s) de contato pelo site', icon: MessageCircle, tab: 'clientes', cor: 'text-emerald-300' },
   ].filter((p) => p.n > 0)
 
   const cards = [
     { label: 'Recebido no mês', valor: formatBRL(recebidoMes), icon: CircleDollarSign, trend: 'entradas' },
     { label: 'A receber', valor: formatBRL(aReceber), icon: Wallet, trend: 'pendente' },
-    { label: 'Reservas a confirmar', valor: reservasAConfirmar, icon: CalendarCheck, trend: 'do site' },
+    { label: 'Pedidos de contato', valor: leadsDoSite.length, icon: MessageCircle, trend: 'do site' },
     { label: 'Ensaios ativos', valor: galeriasAtivas.length, icon: TrendingUp, trend: selParaEditar.length + ' p/ editar' },
   ]
 

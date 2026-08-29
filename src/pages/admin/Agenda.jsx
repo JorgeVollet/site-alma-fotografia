@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Calendar, ChevronLeft, ChevronRight, Ban, Clock, Plus, Trash2, Check, X, CalendarCheck } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
 import { useApp } from '../../context/AppContext'
+import { waLink } from '../../lib/wa'
 
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -144,7 +145,8 @@ export default function Agenda() {
       {reservasAtivas.length === 0 ? (
         <div className="mt-3 rounded-2xl bg-cocoa-900 p-8 text-center ring-1 ring-cream-100/10">
           <Calendar size={28} className="mx-auto text-cream-100/30" />
-          <p className="mt-3 text-sm text-cream-100/60">Nenhuma reserva aguardando. Faça um teste em <Link to="/agendar" className="text-terracotta-400 underline">Agendar</Link>.</p>
+          <p className="mt-3 text-sm text-cream-100/60">Nenhuma reserva aguardando confirmação.</p>
+          <p className="mt-1 text-xs text-cream-100/35">O site não marca mais horário — quem pede contato por lá entra como <strong className="font-medium text-cream-100/60">lead</strong> em Clientes. As datas você marca aqui.</p>
         </div>
       ) : (
         <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
@@ -335,7 +337,7 @@ function ConfirmarReserva({ reserva, onClose, onConfirmar }) {
 
 /* ---- Modal: detalhes da reserva ---- */
 function DetalheReserva({ reserva, onClose }) {
-  const wa = reserva.telefone ? 'https://wa.me/55' + reserva.telefone.replace(/\D/g, '') : null
+  const wa = waLink(reserva.telefone)
   const linha = (k, v) => (
     <div className="flex justify-between gap-3 border-b border-cream-100/5 py-2 text-sm last:border-0"><span className="text-cream-100/50">{k}</span><span className="text-right text-cream-100/90">{v || '—'}</span></div>
   )

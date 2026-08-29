@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X } from 'lucide-react'
 import { STUDIO } from '../data/studio'
+import { waLink } from '../lib/wa'
 
 export default function WhatsappFab() {
   const [show, setShow] = useState(false)
@@ -14,9 +15,7 @@ export default function WhatsappFab() {
     return () => [t1, t2, t3].forEach(clearTimeout)
   }, [])
 
-  const wa = `https://wa.me/${STUDIO.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
-    'Olá! Vim pelo site e gostaria de saber mais sobre os ensaios 📸'
-  )}`
+  const wa = waLink(STUDIO.whatsapp, 'Olá! Vim pelo site e gostaria de saber mais sobre os ensaios 📸')
 
   return (
     <AnimatePresence>

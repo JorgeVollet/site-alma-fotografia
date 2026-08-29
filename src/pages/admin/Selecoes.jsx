@@ -9,6 +9,7 @@ import { useApp } from '../../context/AppContext'
 import { fetchGalerias, fetchFotos, fetchContaGaleria, marcarContaRecebida, reabrirConta, toggleFavoritaFoto, atualizarGaleria } from '../../lib/galerias'
 import { urlPublica } from '../../lib/storage'
 import { FLUXO_GALERIA as FLUXO, statusLabel, statusCor } from '../../data/statusEnsaio'
+import { waLink } from '../../lib/wa'
 
 // 3 modelos de mensagem por status (o estúdio escolhe, edita ou cria os seus).
 const STATUS_PRESETS = {
@@ -223,7 +224,7 @@ function Detalhe({ galeria, onVoltar }) {
   }
 
   const venc = conta?.vencimento ? new Date(conta.vencimento + 'T12:00').toLocaleDateString('pt-BR') : null
-  const wa = cliente?.telefone ? `https://wa.me/55${cliente.telefone.replace(/\D/g, '')}` : null
+  const wa = waLink(cliente?.telefone)
 
   const visiveis = vista === 'selecionadas' ? selecionadas : vista === 'indicadas' ? indicadas : fotos
 

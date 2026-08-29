@@ -46,19 +46,27 @@ export default function Agendar() {
     if (!valido || enviando) return
     setEnviando(true)
     setErro('')
+
+    // Abre a aba do WhatsApp AGORA, ainda dentro do clique: se abrirmos depois
+    // do await, o navegador entende como pop-up e bloqueia. A aba fica em branco
+    // por um instante e carrega sozinha.
+    const aba = linkWa ? window.open(linkWa, '_blank', 'noopener') : null
+
     const r = await solicitarContato({
       nome: form.nome,
       email: form.email,
       telefone: form.telefone,
-      servico: nomeServico,
+      servico: form.servico,           // slug ('gestante'), p/ filtrar depois
+      servicoNome: nomeServico,        // nome bonito, p/ ler no CRM
       mensagem: form.mensagem,
     })
     setEnviando(false)
 
-    // Mesmo se o registro falhar, o cliente NÃO fica na mão: segue pro WhatsApp.
+    // Mesmo se o registro falhar, o cliente NÃO fica na mão: o botão da tela
+    // de sucesso continua levando pro WhatsApp.
     if (!r.ok) setErro(r.erro || 'Não conseguimos registrar, mas pode falar com a gente no WhatsApp.')
     setEnviado(true)
-    if (linkWa) window.open(linkWa, '_blank', 'noopener')
+    if (!aba && linkWa) window.open(linkWa, '_blank', 'noopener')
   }
 
   return (

@@ -135,6 +135,9 @@ export async function gerarVersaoWeb(arquivoOuBlob, maxLado = LADO_WEB) {
   const { canvas } = redimensionar(bmp, maxLado)   // nunca amplia; só reduz
   const out = await paraBlob(canvas, 0.9)          // qualidade alta p/ publicar
   if (bmp.close) bmp.close()
+  // toBlob devolve null se o canvas estourar a memória do aparelho — melhor
+  // avisar do que entregar em silêncio o arquivo enorme que o cliente não pediu.
+  if (!out) throw new Error('Não foi possível preparar a versão para redes.')
   return out
 }
 

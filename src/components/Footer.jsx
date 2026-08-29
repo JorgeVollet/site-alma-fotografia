@@ -3,6 +3,7 @@ import { Instagram, Facebook, MapPin, Phone, Mail, Camera, ArrowUpRight, Lock, S
 import Logo from './Logo'
 import { SeloCircular } from './MarcaDagua'
 import { STUDIO } from '../data/studio'
+import { waLink } from '../lib/wa'
 
 export default function Footer() {
   const { pathname } = useLocation()
@@ -82,7 +83,7 @@ export default function Footer() {
             </ul>
             <div className="mt-6 flex flex-wrap gap-3">
               <a
-                href={`https://wa.me/${STUDIO.whatsapp.replace(/\D/g, '')}`}
+                href={waLink(STUDIO.whatsapp)}
                 target="_blank"
                 rel="noreferrer"
                 className="btn-light !py-2.5 text-xs"

@@ -99,6 +99,7 @@ function Galeria({ sessao, onSair }) {
   const [resultado, setResultado] = useState(null)
   const [aviso, setAviso] = useState(false)
   const [baixandoTodas, setBaixandoTodas] = useState(false)
+  const [erroDownload, setErroDownload] = useState('')
 
   const selecionadas = fotos.filter((f) => f.selecionada)
   const favoritas = fotos.filter((f) => f.favorita)
@@ -157,8 +158,14 @@ function Galeria({ sessao, onSair }) {
       const res = await fetch(f.fullUrl)
       const blob = await res.blob()
       if (modo === 'redes') {
-        const web = await gerarVersaoWeb(blob)
-        baixarBlob(web, nomeVersaoWeb(f.nome))
+        // se a conversão falhar, o cliente PRECISA saber — senão recebe o
+        // arquivo gigante achando que é o de publicar
+        try {
+          baixarBlob(await gerarVersaoWeb(blob), nomeVersaoWeb(f.nome))
+        } catch (err) {
+          console.warn('[entrega] versão p/ redes falhou', err)
+          setErroDownload('Não conseguimos preparar a versão para redes neste aparelho. Tente pelo computador — ou baixe em alta resolução.')
+        }
       } else {
         baixarBlob(blob, f.nome || 'foto.jpg')
       }
@@ -193,6 +200,7 @@ function Galeria({ sessao, onSair }) {
       baixarBlob(conteudo, `${base}${modo === 'redes' ? '-redes' : ''}.zip`)
     } catch (e) {
       console.warn('[entrega] zip falhou, baixando individual', e)
+      setErroDownload('O .zip não deu certo neste aparelho — vamos baixar uma por uma.')
       for (const f of entregas) await baixar(f, modo)
     }
     setBaixandoTodas(false)
@@ -266,16 +274,22 @@ function Galeria({ sessao, onSair }) {
             </div>
           </div>
 
+          {erroDownload && (
+            <p className="mt-4 rounded-xl bg-clay-500/10 p-3 text-xs text-clay-700 ring-1 ring-clay-500/25">{erroDownload}</p>
+          )}
+
+          {/* No celular não existe hover: os botões ficam sempre visíveis embaixo
+              da foto, pra ninguém tocar às cegas e baixar a versão errada. */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {entregas.map((f) => (
-              <div key={f.id} className="group relative overflow-hidden rounded-xl bg-cream-100 ring-1 ring-cocoa-800/10">
+              <div key={f.id} className="overflow-hidden rounded-xl bg-cream-100 ring-1 ring-cocoa-800/10">
                 <Photo src={f.thumbUrl} alt="" fallback="ph-gradient-2" className="aspect-square" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-cocoa-950/0 p-2 opacity-0 transition group-hover:bg-cocoa-950/45 group-hover:opacity-100">
-                  <button onClick={() => baixar(f, 'alta')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-cream-50 px-3 py-1.5 text-[11px] font-medium text-cocoa-800 hover:bg-white">
-                    <Download size={12} /> Alta resolução
+                <div className="flex flex-col gap-1.5 p-2">
+                  <button onClick={() => baixar(f, 'alta')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-cream-200 px-3 py-1.5 text-[11px] font-medium text-cocoa-800 transition hover:bg-cream-300">
+                    <Download size={12} /> Alta
                   </button>
-                  <button onClick={() => baixar(f, 'redes')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-clay-500 px-3 py-1.5 text-[11px] font-medium text-cream-50 hover:bg-clay-600">
-                    <Sparkles size={12} /> Para redes
+                  <button onClick={() => baixar(f, 'redes')} className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-clay-500 px-3 py-1.5 text-[11px] font-medium text-cream-50 transition hover:bg-clay-600">
+                    <Sparkles size={12} /> Redes
                   </button>
                 </div>
               </div>

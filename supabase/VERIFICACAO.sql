@@ -55,9 +55,12 @@ FROM (
   UNION ALL SELECT 16, '16_crm_lead', 'clientes.orcamento + cliente_atualizacoes',
     (EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='clientes' AND column_name='orcamento')
      AND to_regclass('public.cliente_atualizacoes') IS NOT NULL)
-  UNION ALL SELECT 17, '17_situacao_sinal', 'config_estudio + on_ensaio_status_change()',
+  UNION ALL SELECT 17, '17_situacao_sinal', 'config_estudio + handle_ensaio_status_change()',
     (to_regclass('public.config_estudio') IS NOT NULL
-     AND EXISTS(SELECT 1 FROM pg_proc WHERE proname='on_ensaio_status_change'))
+     AND EXISTS(SELECT 1 FROM pg_proc WHERE proname='handle_ensaio_status_change'))
+  UNION ALL SELECT 18, '18_contato_pagamento', 'galerias.pagamento_online + RPC solicitar_contato',
+    (EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='galerias' AND column_name='pagamento_online')
+     AND EXISTS(SELECT 1 FROM pg_proc WHERE proname='solicitar_contato'))
 ) t
 ORDER BY ordem;
 

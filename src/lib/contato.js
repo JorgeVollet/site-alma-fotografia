@@ -4,12 +4,15 @@
 // o cliente entra no CRM e a conversa continua no WhatsApp.
 import { supabase } from './supabase'
 
-export async function solicitarContato({ nome, email, telefone, servico, mensagem }) {
+// servico     = slug ('gestante') -> vai pra ensaios.tipo_ensaio, filtrável
+// servicoNome = nome de exibição ('Gestar') -> entra no título/histórico
+export async function solicitarContato({ nome, email, telefone, servico, servicoNome, mensagem }) {
   const { data, error } = await supabase.rpc('solicitar_contato', {
     p_nome: nome,
     p_email: email || null,
     p_telefone: telefone || null,
     p_servico: servico || null,
+    p_servico_nome: servicoNome || servico || null,
     p_mensagem: mensagem || null,
   })
   if (error) {

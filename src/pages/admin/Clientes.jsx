@@ -7,6 +7,7 @@ import { SERVICOS } from '../../data/studio'
 import { usePacotes } from '../../lib/catalogo'
 import { useApp } from '../../context/AppContext'
 import LeadInfo from './_LeadInfo'
+import { waLink } from '../../lib/wa'
 
 // Status possíveis de um ensaio (sessão)
 const STATUS_ENSAIO = [
@@ -98,7 +99,7 @@ function Ficha({ cliente, onVoltar, onEditar, selecoes }) {
   const { adicionarEnsaioCliente, editarEnsaioCliente, excluirEnsaioCliente } = useApp()
   const [editorEnsaio, setEditorEnsaio] = useState(null) // {novo:true} | ensaio | null
   const gasto = cliente.ensaios.reduce((s, e) => s + (e.valor || 0), 0)
-  const wa = 'https://wa.me/55' + (cliente.telefone || '').replace(/\D/g, '')
+  const wa = waLink(cliente.telefone) || ''
   return (
     <div>
       <button onClick={onVoltar} className="inline-flex items-center gap-2 text-sm text-cream-100/60 hover:text-cream-100"><ArrowLeft size={16} /> Voltar para clientes</button>

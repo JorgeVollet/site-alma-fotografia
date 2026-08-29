@@ -158,11 +158,12 @@ $$;
 -- p/ não fundir homônimos). Cria o cliente como LEAD e o ensaio 'solicitado'
 -- — que pelo 17 não gera conta a receber nem promove o funil sozinho.
 create or replace function public.solicitar_contato(
-  p_nome     text,
-  p_email    text,
-  p_telefone text,
-  p_servico  text default null,
-  p_mensagem text default null
+  p_nome         text,
+  p_email        text,
+  p_telefone     text,
+  p_servico      text default null,   -- slug ('gestante') -> ensaios.tipo_ensaio
+  p_servico_nome text default null,   -- nome de exibição ('Gestar') -> título/histórico
+  p_mensagem     text default null
 )
 returns jsonb
 language plpgsql
@@ -173,9 +174,14 @@ declare
   v_cliente_id uuid;
   v_ensaio_id  uuid;
   v_novo       boolean := false;
+  v_repetido   boolean := false;
   v_nome       text := nullif(trim(coalesce(p_nome, '')), '');
   v_email      text := nullif(lower(trim(coalesce(p_email, ''))), '');
   v_tel        text := nullif(regexp_replace(coalesce(p_telefone, ''), '[^0-9]', '', 'g'), '');
+  v_label      text := coalesce(nullif(trim(coalesce(p_servico_nome, '')), ''),
+                                nullif(trim(coalesce(p_servico, '')), ''),
+                                'Ensaio');
+  v_msg        text := nullif(trim(coalesce(p_mensagem, '')), '');
 begin
   if v_nome is null then
     return jsonb_build_object('ok', false, 'erro', 'Informe o seu nome.');
@@ -195,31 +201,50 @@ begin
   -- 2) não achou -> cria como LEAD (funil não avança sozinho)
   if v_cliente_id is null then
     insert into public.clientes (nome, email, telefone, funil_etapa, origem, interesse, primeiro_contato, notas)
-    values (v_nome, p_email, p_telefone, 'lead', 'site', p_servico, current_date, nullif(trim(coalesce(p_mensagem, '')), ''))
+    values (v_nome, p_email, p_telefone, 'lead', 'site', v_label, current_date, v_msg)
     returning id into v_cliente_id;
     v_novo := true;
   end if;
 
-  -- 3) ensaio 'solicitado' (só uma solicitação: sem conta, sem promover funil)
-  insert into public.ensaios (cliente_id, titulo, tipo_ensaio, valor, status, origem, observacoes)
-  values (v_cliente_id,
-          coalesce(nullif(trim(coalesce(p_servico, '')), ''), 'Ensaio') || ' · solicitação pelo site',
-          p_servico, 0, 'solicitado', 'site',
-          nullif(trim(coalesce(p_mensagem, '')), ''))
-  returning id into v_ensaio_id;
+  -- 3) ensaio 'solicitado' — mas SEM duplicar: se a pessoa mandar o formulário
+  -- duas vezes (ou voltar dias depois), reaproveita a solicitação em aberto do
+  -- mesmo tipo em vez de encher o painel de ensaios repetidos.
+  select id into v_ensaio_id
+    from public.ensaios
+   where cliente_id = v_cliente_id
+     and status = 'solicitado'
+     and origem = 'site'
+     and coalesce(tipo_ensaio, '') = coalesce(p_servico, '')
+   order by created_at desc
+   limit 1;
 
-  -- 4) histórico (timeline do cliente no CRM)
+  if v_ensaio_id is null then
+    insert into public.ensaios (cliente_id, titulo, tipo_ensaio, valor, status, origem, observacoes)
+    values (v_cliente_id, v_label || ' · solicitação pelo site',
+            p_servico, 0, 'solicitado', 'site', v_msg)
+    returning id into v_ensaio_id;
+  else
+    v_repetido := true;
+    -- guarda o recado mais recente sem perder o anterior
+    update public.ensaios
+       set observacoes = trim(both e'\n' from coalesce(observacoes || e'\n', '') || coalesce(v_msg, '')),
+           updated_at  = now()
+     where id = v_ensaio_id and v_msg is not null;
+  end if;
+
+  -- 4) histórico (timeline do cliente no CRM) — sempre registra o novo contato
   insert into public.cliente_atualizacoes (cliente_id, texto)
   values (v_cliente_id,
-          'Pediu contato pelo site'
-          || case when coalesce(p_servico, '') <> '' then ' · ' || p_servico else '' end
-          || case when coalesce(p_mensagem, '') <> '' then ' — "' || left(p_mensagem, 300) || '"' else '' end);
+          case when v_repetido then 'Pediu contato pelo site de novo' else 'Pediu contato pelo site' end
+          || ' · ' || v_label
+          || case when v_msg is not null then ' — "' || left(v_msg, 300) || '"' else '' end);
 
   return jsonb_build_object('ok', true, 'cliente_id', v_cliente_id,
-                            'ensaio_id', v_ensaio_id, 'novo_cliente', v_novo);
+                            'ensaio_id', v_ensaio_id, 'novo_cliente', v_novo,
+                            'repetido', v_repetido);
 end;
 $$;
 
-grant execute on function public.entrar_galeria(text, text)                    to anon, authenticated;
-grant execute on function public.finalizar_selecao(uuid, boolean)              to anon, authenticated;
-grant execute on function public.solicitar_contato(text, text, text, text, text) to anon, authenticated;
+grant execute on function public.entrar_galeria(text, text)                          to anon, authenticated;
+grant execute on function public.finalizar_selecao(uuid, boolean)                    to anon, authenticated;
+grant execute on function public.solicitar_contato(text, text, text, text, text, text) to anon, authenticated;
