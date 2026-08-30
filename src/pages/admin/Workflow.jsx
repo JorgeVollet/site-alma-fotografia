@@ -4,8 +4,9 @@ import { useApp } from '../../context/AppContext'
 import { statusLabel, statusCor } from '../../data/statusEnsaio'
 import { fetchEtapas, atualizarEtapa, criarEtapasPadrao } from '../../lib/producao'
 import { fetchProfiles } from '../../lib/equipe'
+import { hojeISO } from '../../lib/datas'
 
-const hoje = () => new Date().toISOString().slice(0, 10)
+const hoje = () => hojeISO()
 
 export default function Workflow() {
   const { galerias } = useApp()

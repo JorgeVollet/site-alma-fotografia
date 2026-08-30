@@ -172,3 +172,20 @@ export async function urlAssinadaOriginal(path, segundos = 3600) {
   if (error) { console.warn('[storage] signed url falhou:', error.message); return null }
   return data.signedUrl
 }
+
+// Remove os arquivos de uma foto dos buckets. Sem isso, "excluir" apagava só a
+// linha do banco e a imagem seguia acessível para sempre por URL pública —
+// quem já tivesse o link (ou o cliente) continuava vendo a foto removida.
+export async function apagarArquivosFoto(foto) {
+  if (!foto) return
+  const bucket = foto.tipo === 'entrega' ? BUCKET_ENTREGAS : BUCKET_PREVIEWS
+  const paths = [foto.previewPath, foto.thumbPath].filter(Boolean)
+  if (paths.length) {
+    const { error } = await supabase.storage.from(bucket).remove(paths)
+    if (error) console.warn('[storage] remover falhou:', error.message)
+  }
+  if (foto.originalPath) {
+    const { error } = await supabase.storage.from(BUCKET_ORIGINAIS).remove([foto.originalPath])
+    if (error) console.warn('[storage] remover original falhou:', error.message)
+  }
+}

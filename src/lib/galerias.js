@@ -1,6 +1,6 @@
 // Camada de dados de GALERIAS + FOTOS (Bloco 4A). Só a equipe (authenticated).
 import { supabase } from './supabase'
-import { gerarVersoes, uploadFotoVersoes, gerarEntrega, uploadEntrega } from './storage'
+import { gerarVersoes, uploadFotoVersoes, gerarEntrega, uploadEntrega, apagarArquivosFoto } from './storage'
 import { fetchConfig } from './config'
 
 export function mapGaleria(row) {
@@ -163,16 +163,21 @@ export async function fetchFotos(galeriaId) {
 }
 
 export async function excluirFoto(id) {
+  // busca os caminhos ANTES de apagar a linha, senão perdemos a referência
+  const { data: alvo } = await supabase.from('fotos').select('*').eq('id', id).maybeSingle()
   const { error } = await supabase.from('fotos').delete().eq('id', id)
   if (error) { console.warn('[fotos] excluir falhou:', error.message); return false }
+  if (alvo) await apagarArquivosFoto(mapFoto(alvo))
   return true
 }
 
 // Exclui várias fotos de uma vez.
 export async function excluirFotos(ids) {
   if (!ids || !ids.length) return false
+  const { data: alvos } = await supabase.from('fotos').select('*').in('id', ids)
   const { error } = await supabase.from('fotos').delete().in('id', ids)
   if (error) { console.warn('[fotos] excluir várias falhou:', error.message); return false }
+  for (const a of alvos || []) await apagarArquivosFoto(mapFoto(a))
   return true
 }
 

@@ -4,6 +4,7 @@ import { Calendar, ChevronLeft, ChevronRight, Ban, Clock, Plus, Trash2, Check, X
 import { formatBRL } from '../../components/Money'
 import { useApp } from '../../context/AppContext'
 import { waLink } from '../../lib/wa'
+import { hojeISO } from '../../lib/datas'
 
 const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
@@ -20,7 +21,7 @@ export default function Agenda() {
   const mes = ref.getMonth()
   const primeiroDia = new Date(ano, mes, 1).getDay()
   const diasNoMes = new Date(ano, mes + 1, 0).getDate()
-  const hojeStr = new Date().toISOString().slice(0, 10)
+  const hojeStr = hojeISO()
 
   // reservas ativas (aguardando confirmação e data não passada) x resolvidas
   const reservasAtivas = agendamentos.filter((a) => a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr))

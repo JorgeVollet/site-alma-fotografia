@@ -5,8 +5,9 @@ import { formatBRL } from '../../components/Money'
 import { useApp } from '../../context/AppContext'
 import { fetchContasReceber, marcarContaRecebida, reabrirConta } from '../../lib/galerias'
 import { fetchContasPagar, criarContaPagar, pagarContaPagar, excluirContaPagar } from '../../lib/financeiro'
+import { hojeISO } from '../../lib/datas'
 
-const hoje = () => new Date().toISOString().slice(0, 10)
+const hoje = () => hojeISO()
 
 export default function Contas() {
   const { clientes } = useApp()

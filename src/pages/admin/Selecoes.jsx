@@ -142,6 +142,7 @@ function Detalhe({ galeria, onVoltar }) {
   const [status, setStatus] = useState(galeria.status)
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [erroStatus, setErroStatus] = useState('')
   const [msgStatus, setMsgStatus] = useState(null) // status p/ o modal de mensagem ao cliente
   const [exportInfo, setExportInfo] = useState(null) // 'lightroom' | 'txt' — instruções pós-download
   const [vista, setVista] = useState('todas')       // todas | selecionadas | indicadas
@@ -173,9 +174,16 @@ function Detalhe({ galeria, onVoltar }) {
   const mudar = async (novo, confirmar) => {
     if (confirmar && !window.confirm(confirmar)) return
     setSalvando(true)
-    await mudarStatusGaleria(galeria.id, novo)
-    setStatus(novo)
+    const ok = await mudarStatusGaleria(galeria.id, novo)
     setSalvando(false)
+    // ANTES a tela avancava mesmo com o banco recusando: o estudio avisava
+    // "suas fotos estao prontas" com o status parado no servidor.
+    if (!ok) {
+      setErroStatus('Não foi possível mudar a etapa agora. A tela continua na etapa anterior — tente de novo.')
+      return
+    }
+    setErroStatus('')
+    setStatus(novo)
     if (STATUS_PRESETS[novo]) setMsgStatus(novo) // abre o pop-up de aviso (opcional)
   }
 
@@ -276,6 +284,9 @@ function Detalhe({ galeria, onVoltar }) {
             {status === 'pronto' && <span className="self-center text-sm text-emerald-300">Entregue 🎉</span>}
             {STATUS_PRESETS[status] && <button onClick={() => setMsgStatus(status)} className="inline-flex items-center gap-1.5 rounded-full bg-cocoa-800 px-3 py-2 text-xs text-cream-100/70 ring-1 ring-cream-100/15 hover:text-cream-100"><MessageCircle size={13} /> Avisar cliente</button>}
           </div>
+          {erroStatus && (
+            <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-xs text-red-300 ring-1 ring-red-400/30">{erroStatus}</p>
+          )}
           {selecionadas.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2 border-t border-cream-100/10 pt-3">
               <button onClick={exportarLightroom} className="inline-flex items-center gap-2 rounded-full bg-terracotta-500/15 px-4 py-2 text-xs text-terracotta-300 ring-1 ring-terracotta-400/25 hover:bg-terracotta-500/25"><Download size={14} /> Exportar p/ Lightroom</button>

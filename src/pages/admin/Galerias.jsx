@@ -246,6 +246,31 @@ function Detalhe({ galeria, onVoltar }) {
         </div>
       </div>
 
+      {/* Pagamento online: decisão por galeria.
+          FICA SEMPRE VISÍVEL de propósito — o momento do pagamento é quando o
+          cliente ENVIA A SELEÇÃO, que acontece antes da entrega das finais. Se
+          este botão vivesse só na aba "Entrega", o estúdio o ajustaria depois
+          da hora e a escolha não teria efeito nenhum. */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cocoa-900 p-4 ring-1 ring-cream-100/10">
+        <div>
+          <p className="text-sm font-medium text-cream-100/90">Deixar o cliente pagar pelo site</p>
+          <p className="mt-0.5 text-xs text-cream-100/50">
+            {pagOnline
+              ? 'Ligado: ao enviar a seleção, o cliente pode pedir para pagar na hora e você recebe o aviso para mandar o link.'
+              : 'Desligado: o cliente só confirma a seleção e você recebe como sempre (maquininha/PIX), lançando no financeiro.'}
+          </p>
+        </div>
+        <button
+          onClick={trocarPagOnline}
+          role="switch"
+          aria-checked={pagOnline}
+          className={'relative h-7 w-12 shrink-0 rounded-full transition ' + (pagOnline ? 'bg-emerald-500' : 'bg-cocoa-700 ring-1 ring-cream-100/15')}
+          title={pagOnline ? 'Desligar pagamento pelo site' : 'Ligar pagamento pelo site'}
+        >
+          <span className={'absolute top-1 h-5 w-5 rounded-full bg-cream-50 transition-all ' + (pagOnline ? 'left-6' : 'left-1')} />
+        </button>
+      </div>
+
       {/* Abas: seleção / entrega */}
       <div className="mt-7 flex gap-2">
         {[['selecao', `Fotos p/ seleção (${fotosSelecao.length})`], ['entrega', `Entrega das fotos (${fotosEntrega.length})`]].map(([id, lbl]) => (
@@ -278,28 +303,6 @@ function Detalhe({ galeria, onVoltar }) {
         </div>
       )}
 
-      {/* Pagamento online: decisão por galeria, na hora de entregar as fotos */}
-      {aba === 'entrega' && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cocoa-900 p-4 ring-1 ring-cream-100/10">
-          <div>
-            <p className="text-sm font-medium text-cream-100/90">Deixar o cliente pagar pelo site</p>
-            <p className="mt-0.5 text-xs text-cream-100/50">
-              {pagOnline
-                ? 'Ligado: aparece "Pagar agora" (cartão/PIX) ao enviar a seleção.'
-                : 'Desligado: o cliente só confirma a seleção e você recebe como sempre (maquininha/PIX), lançando no financeiro.'}
-            </p>
-          </div>
-          <button
-            onClick={trocarPagOnline}
-            role="switch"
-            aria-checked={pagOnline}
-            className={'relative h-7 w-12 shrink-0 rounded-full transition ' + (pagOnline ? 'bg-emerald-500' : 'bg-cocoa-700 ring-1 ring-cream-100/15')}
-            title={pagOnline ? 'Desligar pagamento pelo site' : 'Ligar pagamento pelo site'}
-          >
-            <span className={'absolute top-1 h-5 w-5 rounded-full bg-cream-50 transition-all ' + (pagOnline ? 'left-6' : 'left-1')} />
-          </button>
-        </div>
-      )}
 
       {/* Observações do cliente (só seleção) */}
       {aba === 'selecao' && comObs.length > 0 && (

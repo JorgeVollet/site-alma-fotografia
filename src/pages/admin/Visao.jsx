@@ -8,6 +8,7 @@ import { statusLabel, statusCor } from '../../data/statusEnsaio'
 import { fetchContasReceber } from '../../lib/galerias'
 import { fetchLancamentos } from '../../lib/financeiro'
 import { waLink } from '../../lib/wa'
+import { hojeISO } from '../../lib/datas'
 
 // Mensagens de PARABÉNS — só liberadas NO DIA exato do aniversário.
 const ANIVERSARIO_HOJE = [
@@ -57,7 +58,7 @@ export default function Visao({ setTab }) {
     return () => { vivo = false }
   }, [galerias, agendamentos])
 
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeISO()
   const agora = new Date()
   const noMes = (iso) => { if (!iso) return false; const d = new Date(String(iso).slice(0, 10) + 'T12:00'); return d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear() }
 

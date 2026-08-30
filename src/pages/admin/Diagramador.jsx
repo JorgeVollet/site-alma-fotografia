@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Trash2, BookOpen, LayoutGrid, Check, Sparkles, ExternalLink } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import { CLIENTES, getGaleriaData } from '../../data/crm'
-import { GALERIA_CLIENTE_DEMO } from '../../data/galleries'
+import { fetchFotos } from '../../lib/galerias'
+import { urlGaleria } from '../../lib/storage'
 import { FORMATOS_ALBUM, aplicarTemplate, novoSpread } from '../../data/album'
 
-function fotosDoCliente(clienteId) {
-  const c = CLIENTES.find((x) => x.id === clienteId)
-  if (!c || !c.galeriaId) return []
-  if (c.galeriaId === 'demo') return GALERIA_CLIENTE_DEMO.fotos
-  const g = getGaleriaData(c.galeriaId)
-  return g ? g.fotos : []
+// ANTES isto lia CLIENTES de data/crm.js, que foi ZERADO na migração para o
+// Supabase — a lista de clientes vinha sempre vazia e o Diagramador não abria
+// nenhum álbum. Agora as fotos vêm da galeria real.
+async function fotosDaGaleria(galeriaId) {
+  if (!galeriaId) return []
+  const fotos = await fetchFotos(galeriaId)
+  return fotos
+    .filter((f) => f.selecionada || f.tipo === 'entrega')
+    .map((f) => ({ id: f.id, src: urlGaleria(f.tipo, f.previewPath), alt: f.nomeArquivo || '' }))
 }
 
 // Abre o editor em NOVA ABA, tela cheia
@@ -76,21 +79,29 @@ export default function Diagramador() {
 }
 
 function NovoAlbum({ onClose, onCriar }) {
+  const { clientes, galerias } = useApp()
   const [nome, setNome] = useState('')
-  const [clienteId, setClienteId] = useState('')
+  const [galeriaId, setGaleriaId] = useState('')
   const [formato, setFormato] = useState('quadrado')
-  const comGaleria = CLIENTES.filter((c) => c.galeriaId)
+  const [criando, setCriando] = useState(false)
+  // uma opção por GALERIA real (é ela que tem as fotos)
+  const opcoes = (galerias || []).map((g) => {
+    const c = (clientes || []).find((x) => x.id === g.clienteId)
+    return { id: g.id, clienteId: g.clienteId, rotulo: (c ? c.nome : g.clienteNome || g.nome) + ' — ' + (g.ensaioTitulo || g.nome), clienteNome: c ? c.nome : g.clienteNome || '' }
+  })
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
-  const valido = nome.trim() && clienteId
+  const valido = nome.trim() && galeriaId
 
-  const criar = () => {
+  const criar = async () => {
+    setCriando(true)
     const fmt = FORMATOS_ALBUM.find((f) => f.id === formato)
-    const fotos = fotosDoCliente(clienteId)
+    const fotos = await fotosDaGaleria(galeriaId)
     const capa = novoSpread('carvao'); capa.elementos = aplicarTemplate('capa-elegante', fotos)
     const sp1 = novoSpread('branco'); sp1.elementos = aplicarTemplate('duo-titulo', fotos.slice(1))
     const sp2 = novoSpread('cream'); sp2.elementos = aplicarTemplate('destaque-texto', fotos.slice(3))
-    const c = CLIENTES.find((x) => x.id === clienteId)
-    onCriar({ nome: nome.trim(), clienteId, clienteNome: c ? c.nome : '', formato, formatoNome: fmt.nome, ratio: fmt.ratio, spreads: [capa, sp1, sp2] })
+    const op = opcoes.find((o) => o.id === galeriaId)
+    setCriando(false)
+    onCriar({ nome: nome.trim(), clienteId: op ? op.clienteId : null, galeriaId, clienteNome: op ? op.clienteNome : '', formato, formatoNome: fmt.nome, ratio: fmt.ratio, spreads: [capa, sp1, sp2] })
   }
 
   return (
@@ -102,7 +113,7 @@ function NovoAlbum({ onClose, onCriar }) {
         </div>
         <div className="mt-5 space-y-4">
           <label className="block"><span className="text-sm text-cream-100/80">Nome do álbum</span><input className={inp} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Casamento Eduardo & Camila" /></label>
-          <label className="block"><span className="text-sm text-cream-100/80">Cliente / ensaio</span><select className={inp} value={clienteId} onChange={(e) => setClienteId(e.target.value)}><option value="">Selecione...</option>{comGaleria.map((c) => <option key={c.id} value={c.id}>{c.nome} — {c.ensaios[0].titulo}</option>)}</select></label>
+          <label className="block"><span className="text-sm text-cream-100/80">Cliente / ensaio</span><select className={inp} value={galeriaId} onChange={(e) => setGaleriaId(e.target.value)}><option value="">Selecione...</option>{opcoes.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}</select></label>
           <div>
             <span className="text-sm text-cream-100/80">Formato</span>
             <div className="mt-2 grid grid-cols-3 gap-2">
@@ -115,7 +126,7 @@ function NovoAlbum({ onClose, onCriar }) {
             </div>
           </div>
         </div>
-        <button onClick={() => valido && criar()} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> Criar e abrir em tela cheia</button>
+        <button onClick={() => valido && criar()} disabled={!valido || criando} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {criando ? "Carregando fotos..." : "Criar e abrir em tela cheia"}</button>
         <p className="mt-2 text-center text-xs text-cream-100/40">O editor abre numa nova aba, em tela cheia.</p>
       </motion.div>
     </motion.div>

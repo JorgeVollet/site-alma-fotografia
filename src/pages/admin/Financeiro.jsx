@@ -6,8 +6,9 @@ import { CATEGORIAS_FIN } from '../../data/crm'
 import { useApp } from '../../context/AppContext'
 import { fetchLancamentos, criarLancamento, atualizarLancamento, excluirLancamento } from '../../lib/financeiro'
 import { fetchContasReceber } from '../../lib/galerias'
+import { hojeISO } from '../../lib/datas'
 
-const hojeISO = () => new Date().toISOString().slice(0, 10)
+
 
 export default function Financeiro() {
   const { clientes } = useApp()

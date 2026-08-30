@@ -16,6 +16,7 @@ import {
   excluirContrato as dbExcluirContrato,
 } from '../lib/contratos'
 import { fetchNotas, fetchFaturaveis, gerarNota as dbGerarNota, marcarNotaEmitida as dbMarcarNotaEmitida, cancelarNota as dbCancelarNota, reverterEmissao as dbReverterEmissao, excluirNota as dbExcluirNota } from '../lib/notas'
+import { hojeISO } from '../lib/datas'
 
 // ordem das etapas do funil (p/ nunca regredir uma etapa já avançada)
 const ORDEM_FUNIL = FUNIL_ETAPAS.reduce((acc, e, i) => { acc[e.id] = i; return acc }, {})
@@ -536,7 +537,7 @@ export function AppProvider({ children }) {
   const marcarConta = useCallback((id, status, custom, conta) => {
     setState((s) => {
       const quitou = status === 'pago' || status === 'recebido'
-      const pagoEm = quitou ? new Date().toISOString().slice(0, 10) : ''
+      const pagoEm = quitou ? hojeISO() : ''
       let financeiroCustom = s.financeiroCustom
       if (quitou && conta) {
         // evita duplicar
