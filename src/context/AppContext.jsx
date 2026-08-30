@@ -588,7 +588,9 @@ export function AppProvider({ children }) {
   // Criar: aceita pdfFile (File) p/ upload no bucket privado. Otimista na lista.
   const criarContrato = useCallback(async (contrato) => {
     const novo = await dbCriarContrato(contrato)
-    if (novo) setContratosDB((l) => [novo, ...l])
+    // o lib devolve { erro } quando o upload do PDF ou o insert falham —
+    // nesse caso NÃO entra na lista (antes o contrato aparecia sem o anexo)
+    if (novo && !novo.erro) setContratosDB((l) => [novo, ...l])
     return novo
   }, [])
 

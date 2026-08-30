@@ -25,6 +25,7 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
   const [pdf, setPdf] = useState(null)
   const [pdfNome, setPdfNome] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
   const fileRef = useRef(null)
 
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
@@ -54,8 +55,13 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
       payload = { ...base, modelo: pdfNome.replace('.pdf', ''), titulo: pdfNome, pdfFile: pdf, pdfNome }
     }
     setSalvando(true)
+    setErro('')
     const novo = await onCriar(payload)
     setSalvando(false)
+    if (!novo || novo.erro) {
+      setErro((novo && novo.erro) || 'Não foi possível criar o contrato. Tente de novo.')
+      return
+    }
     if (onCriado) onCriado(novo)
   }
 
@@ -147,6 +153,7 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
           </div>
         )}
 
+        {erro && <p className="mt-5 rounded-xl bg-red-500/10 p-3 text-xs text-red-300 ring-1 ring-red-400/30">{erro}</p>}
         <button onClick={criar} disabled={!podeColar || salvando} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {salvando ? 'Criando...' : 'Criar contrato'}</button>
       </motion.div>
     </motion.div>

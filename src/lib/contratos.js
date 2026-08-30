@@ -65,12 +65,18 @@ export async function criarContrato(campos) {
     const { error: upErr } = await supabase.storage
       .from('contratos')
       .upload(path, campos.pdfFile, { contentType: 'application/pdf', upsert: false })
-    if (upErr) console.warn('[contratos] upload pdf:', upErr.message)
-    else { pdfPath = path; pdfNome = campos.pdfFile.name }
+    if (upErr) {
+      // ANTES isto era só um console.warn: o contrato nascia SEM o PDF e o
+      // estúdio seguia achando que o anexo estava lá.
+      console.warn('[contratos] upload pdf:', upErr.message)
+      return { erro: 'O PDF não pôde ser enviado (' + upErr.message + '). O contrato NÃO foi criado — tente de novo.' }
+    }
+    pdfPath = path
+    pdfNome = campos.pdfFile.name
   }
   const payload = paraColunas({ ...campos, pdfPath, pdfNome })
   const { data, error } = await supabase.from('contratos').insert(payload).select(SEL).single()
-  if (error) { console.warn('[contratos] criar falhou:', error.message); return null }
+  if (error) { console.warn('[contratos] criar falhou:', error.message); return { erro: error.message } }
   return mapContrato(data)
 }
 

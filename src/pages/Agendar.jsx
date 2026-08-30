@@ -50,7 +50,10 @@ export default function Agendar() {
     // Abre a aba do WhatsApp AGORA, ainda dentro do clique: se abrirmos depois
     // do await, o navegador entende como pop-up e bloqueia. A aba fica em branco
     // por um instante e carrega sozinha.
-    const aba = linkWa ? window.open(linkWa, '_blank', 'noopener') : null
+    // (Uma vez só: com 'noopener' o window.open SEMPRE devolve null por
+    //  especificacao, entao testar o retorno abriria o WhatsApp duas vezes.
+    //  Se o navegador bloquear, o botao da tela de sucesso resolve.)
+    if (linkWa) window.open(linkWa, '_blank', 'noopener')
 
     const r = await solicitarContato({
       nome: form.nome,
@@ -66,7 +69,6 @@ export default function Agendar() {
     // de sucesso continua levando pro WhatsApp.
     if (!r.ok) setErro(r.erro || 'Não conseguimos registrar, mas pode falar com a gente no WhatsApp.')
     setEnviado(true)
-    if (!aba && linkWa) window.open(linkWa, '_blank', 'noopener')
   }
 
   return (

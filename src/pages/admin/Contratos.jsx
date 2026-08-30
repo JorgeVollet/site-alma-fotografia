@@ -82,7 +82,15 @@ export default function Contratos() {
             onEditar={() => { setEditando(aberto); setAberto(null) }}
             onEnviar={() => { setEnviar(aberto); setAberto(null) }}
             onAssinar={() => { assinarContrato(aberto.id); setAberto(null) }}
-            onExcluir={() => { excluirContrato(aberto.id); setAberto(null) }}
+            onExcluir={() => {
+              // assinado apaga assinatura + recebível pendente: pede confirmação
+              const aviso = aberto.status === 'assinado'
+                ? 'Este contrato está ASSINADO. Excluir apaga a assinatura registrada e a cobrança pendente que ele gerou. Tem certeza?'
+                : 'Excluir este contrato?'
+              if (!window.confirm(aviso)) return
+              excluirContrato(aberto.id)
+              setAberto(null)
+            }}
           />
         )}
         {enviar && (

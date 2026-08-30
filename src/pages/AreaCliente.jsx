@@ -100,6 +100,7 @@ function Galeria({ sessao, onSair }) {
   const [aviso, setAviso] = useState(false)
   const [baixandoTodas, setBaixandoTodas] = useState(false)
   const [erroDownload, setErroDownload] = useState('')
+  const [erroSalvar, setErroSalvar] = useState('')
 
   const selecionadas = fotos.filter((f) => f.selecionada)
   const favoritas = fotos.filter((f) => f.favorita)
@@ -112,33 +113,45 @@ function Galeria({ sessao, onSair }) {
     setFotos((fs) => fs.map((f) => (f.id === id ? { ...f, ...campos } : f)))
   }, [])
 
-  const toggle = useCallback((foto) => {
+  // A escolha e otimista na tela, mas se o banco recusar a gente DESFAZ e avisa:
+  // antes a foto ficava marcada so no navegador e a selecao chegava incompleta.
+  const toggle = useCallback(async (foto) => {
     const nova = !foto.selecionada
     patch(foto.id, { selecionada: nova })
-    salvarSelecaoFoto(token, foto.id, nova, foto.observacao)
+    const ok = await salvarSelecaoFoto(token, foto.id, nova, foto.observacao)
+    if (!ok) {
+      patch(foto.id, { selecionada: !nova })
+      setErroSalvar('Não conseguimos salvar essa escolha. Verifique a conexão e tente de novo.')
+    }
   }, [token, patch])
 
   const setObs = useCallback((foto, texto) => {
     patch(foto.id, { observacao: texto })
   }, [patch])
 
-  const salvarObs = useCallback((foto) => {
-    salvarSelecaoFoto(token, foto.id, foto.selecionada, foto.observacao)
+  const salvarObs = useCallback(async (foto) => {
+    const ok = await salvarSelecaoFoto(token, foto.id, foto.selecionada, foto.observacao)
+    if (!ok) setErroSalvar('Não conseguimos salvar a sua observação. Tente escrever de novo.')
   }, [token])
 
   const finalizar = async (pagarAgora) => {
     setFinalizando(true)
+    setErroSalvar('')
     const r = await finalizarSelecao(token, pagarAgora)
     setFinalizando(false)
     if (r.ok) { setResultado(r); setPagModal(false); setJaEnviou(true); setAviso(true) }
+    // antes o botao simplesmente parava e o cliente achava que tinha enviado
+    else setErroSalvar(r.erro || 'Não conseguimos enviar a sua seleção agora. Tente de novo em instantes.')
   }
 
-  // Recorrência: já enviou antes → só reabre p/ o estúdio (sem pagamento aqui).
+  // Recorrência: já enviou antes → reabre p/ o estúdio e RECALCULA as extras.
   const reenviar = async () => {
     setFinalizando(true)
+    setErroSalvar('')
     const r = await reenviarSelecao(token)
     setFinalizando(false)
-    if (r.ok) { setResultado(null); setAviso(true) }
+    if (r.ok) { setResultado(r); setAviso(true) }
+    else setErroSalvar(r.erro || 'Não conseguimos reenviar agora. Tente de novo em instantes.')
   }
   const onEnviar = () => { if (jaEnviou) reenviar(); else setPagModal(true) }
 
@@ -238,7 +251,12 @@ function Galeria({ sessao, onSair }) {
           <div className="flex-1 text-sm text-cocoa-700">
             <strong className="text-cocoa-800">Seleção enviada! 💛</strong> Recebemos as suas {selecionadas.length} fotos. Vamos tratar cada uma com carinho e avisamos quando estiverem prontas.
             {resultado && (
-              <span className="mt-1 block text-clay-700">Total {formatBRL(resultado.total)} · {resultado.status === 'pago' ? 'Pago ✓' : `a pagar até ${vencAviso}`}</span>
+              <span className="mt-1 block text-clay-700">
+                Total {formatBRL(resultado.total)} ·{' '}
+                {resultado.pagamento_solicitado
+                  ? 'o estúdio vai te enviar o link de pagamento'
+                  : `a combinar até ${vencAviso}`}
+              </span>
             )}
           </div>
           <button onClick={() => setAviso(false)} className="text-cocoa-400 hover:text-cocoa-700"><X size={16} /></button>
@@ -298,6 +316,14 @@ function Galeria({ sessao, onSair }) {
         </div>
       ) : (
       <>
+      {erroSalvar && (
+        <div className="mt-4 flex items-start gap-3 rounded-2xl bg-red-500/10 p-4 text-sm text-red-700 ring-1 ring-red-500/25">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <span className="flex-1">{erroSalvar}</span>
+          <button onClick={() => setErroSalvar('')} className="text-red-400 hover:text-red-700"><X size={16} /></button>
+        </div>
+      )}
+
       {/* Barra de resumo (sticky) */}
       <div className="sticky top-20 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-cocoa-800 px-5 py-3 text-cream-50 shadow-lg">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
@@ -431,7 +457,7 @@ function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, final
         <div className="mt-3 grid gap-3">
           {pagamentoOnline && (
             <button onClick={() => onPagar(true)} disabled={finalizando} className="flex items-center justify-between rounded-2xl bg-cocoa-800 px-5 py-4 text-left text-cream-50 transition hover:bg-cocoa-900 disabled:opacity-50">
-              <span className="flex items-center gap-3"><QrCode size={20} className="text-clay-300" /><span><span className="block font-medium">Pagar agora</span><span className="block text-xs text-cream-100/60">PIX / cartão pelo site</span></span></span>
+              <span className="flex items-center gap-3"><QrCode size={20} className="text-clay-300" /><span><span className="block font-medium">Quero pagar agora</span><span className="block text-xs text-cream-100/60">o estúdio te envia o link de PIX / cartão</span></span></span>
               {finalizando ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
             </button>
           )}

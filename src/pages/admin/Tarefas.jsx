@@ -109,6 +109,8 @@ function Linha({ t, feita, cliente, onToggle, onEditar, onExcluir }) {
 }
 
 function EditorTarefa({ tarefa, onClose, onSalvar }) {
+  // clientes vem do contexto: era lido de fora do escopo (ReferenceError ao abrir)
+  const { clientes } = useApp()
   const [texto, setTexto] = useState(tarefa.texto || '')
   const [clienteId, setClienteId] = useState(tarefa.clienteId || '')
   const [prazo, setPrazo] = useState(tarefa.prazo || HOJE)

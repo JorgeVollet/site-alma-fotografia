@@ -15,6 +15,7 @@ export default function Assinar() {
   const [contrato, setContrato] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [temAssinatura, setTemAssinatura] = useState(false)
+  const [confirmouPdf, setConfirmouPdf] = useState(false)
   const [assinado, setAssinado] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const desenhando = useRef(false)
@@ -100,6 +101,10 @@ export default function Assinar() {
         ensaio: contrato.ensaio || 'o ensaio contratado',
       })
 
+  // PDF anexado e nenhuma cláusula na tela: quem assina não tem o que ler aqui
+  // (o bucket de contratos é privado e esta página não recebe link do arquivo).
+  const precisaConfirmarPdf = clausulas.length === 0 && !!contrato.pdfNome
+
   return (
     <div className="min-h-screen bg-cream-200 py-8">
       <div className="mx-auto max-w-2xl px-4">
@@ -133,7 +138,11 @@ export default function Assinar() {
                 <p key={i} className="text-sm leading-relaxed text-cocoa-700"><strong>Cláusula {i + 1}ª.</strong> {cl}</p>
               ))}
               {clausulas.length === 0 && (
-                <p className="text-sm text-cocoa-500">{contrato.pdfNome ? 'Contrato anexado em PDF. Leia o documento enviado pelo estúdio antes de assinar.' : 'Sem cláusulas cadastradas.'}</p>
+                <p className="text-sm text-cocoa-500">
+                  {contrato.pdfNome
+                    ? 'O texto deste contrato está no arquivo em PDF que o estúdio enviou — ele não é exibido aqui.'
+                    : 'Sem cláusulas cadastradas.'}
+                </p>
               )}
             </div>
 
@@ -146,7 +155,23 @@ export default function Assinar() {
               <span className="text-xs text-cocoa-400">{contrato.clienteNome}</span>
             </div>
 
-            <button onClick={confirmar} disabled={!temAssinatura || salvando} className="btn-primary mt-6 w-full disabled:opacity-40">
+            {precisaConfirmarPdf && (
+              <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-clay-500/10 p-4 ring-1 ring-clay-500/30">
+                <input
+                  type="checkbox"
+                  checked={confirmouPdf}
+                  onChange={(e) => setConfirmouPdf(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-terracotta-500"
+                />
+                <span className="text-xs leading-relaxed text-cocoa-700">
+                  Declaro que <strong>recebi e li</strong> o contrato <strong>{contrato.pdfNome}</strong> enviado
+                  pelo estúdio. (O documento não é exibido nesta página — se você ainda não o recebeu, peça ao
+                  estúdio antes de assinar.)
+                </span>
+              </label>
+            )}
+
+            <button onClick={confirmar} disabled={!temAssinatura || salvando || (precisaConfirmarPdf && !confirmouPdf)} className="btn-primary mt-6 w-full disabled:opacity-40">
               {salvando ? <><Loader2 size={16} className="animate-spin" /> Registrando…</> : <><Check size={16} /> Assinar contrato</>}
             </button>
             <p className="mt-3 text-center text-xs text-cocoa-400">Ao assinar, você concorda com os termos acima. Assinatura eletrônica com validade jurídica (Lei 14.063/2020).</p>

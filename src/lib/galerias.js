@@ -18,6 +18,8 @@ export function mapGaleria(row) {
     ensaioTitulo: row.ensaio?.titulo || '',
     mensagemFotografo: row.mensagem_fotografo || '',
     pagamentoOnline: !!row.pagamento_online,
+    valorTotal: row.valor_total != null ? Number(row.valor_total) : 0,
+    reserva: row.reserva != null ? Number(row.reserva) : 0,
     totalFotos: Array.isArray(row.fotos) ? (row.fotos[0]?.count ?? 0) : 0,
     criadoEm: row.created_at,
   }
@@ -78,6 +80,10 @@ export async function atualizarGaleria(id, campos) {
   if ('fotosInclusas' in campos) col.fotos_inclusas = campos.fotosInclusas
   if ('mensagemFotografo' in campos) col.mensagem_fotografo = campos.mensagemFotografo
   if ('pagamentoOnline' in campos) col.pagamento_online = !!campos.pagamentoOnline
+  // valores editáveis: a galeria congelava o preço na criação e não havia como
+  // corrigir quando o ensaio nascia sem valor (lead do site)  [20]
+  if ('valorTotal' in campos) col.valor_total = campos.valorTotal
+  if ('reserva' in campos) col.reserva = campos.reserva
   const { data, error } = await supabase.from('galerias').update(col).eq('id', id).select().single()
   if (error) { console.warn('[galerias] atualizar falhou:', error.message); return null }
   return mapGaleria(data)
@@ -175,6 +181,7 @@ export async function excluirFotos(ids) {
 export async function adicionarFotos(galeriaId, files, tipo = 'selecao', ordemInicial = 0, onProgress) {
   const lista = Array.from(files)
   const criadas = []
+  const falhas = []
   let ordem = ordemInicial
   for (let i = 0; i < lista.length; i++) {
     const file = lista[i]
@@ -199,11 +206,17 @@ export async function adicionarFotos(galeriaId, files, tipo = 'selecao', ordemIn
           .select()
           .single()
         if (!error && data) criadas.push(mapFoto(data))
+        else falhas.push({ nome: file.name || 'foto', motivo: error?.message || 'não foi possível registrar' })
+      } else {
+        falhas.push({ nome: file.name || 'foto', motivo: 'o envio para o storage falhou' })
       }
     } catch (e) {
       console.warn('[fotos] falha ao processar', file.name, e)
+      falhas.push({ nome: file.name || 'foto', motivo: e?.message || 'arquivo não pôde ser lido' })
     }
     if (onProgress) onProgress(i + 1, lista.length)
   }
-  return criadas
+  // Devolve as FALHAS junto: antes a barra chegava a 100% e as fotos que não
+  // subiram simplesmente sumiam, sem o fotógrafo perceber.
+  return { criadas, falhas }
 }

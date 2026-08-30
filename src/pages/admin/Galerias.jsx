@@ -110,6 +110,9 @@ function Detalhe({ galeria, onVoltar }) {
   const [aba, setAba] = useState('selecao') // selecao | entrega
   const [avisar, setAvisar] = useState(false)
   const [pagOnline, setPagOnline] = useState(!!galeria.pagamentoOnline)
+  const [falhasUpload, setFalhasUpload] = useState([])
+  const [valorTotal, setValorTotal] = useState(galeria.valorTotal ?? '')
+  const [reserva, setReserva] = useState(galeria.reserva ?? '')
   const inputRef = useRef(null)
 
   const cliente = clientes.find((c) => c.id === galeria.clienteId)
@@ -134,8 +137,11 @@ function Detalhe({ galeria, onVoltar }) {
     if (!files || !files.length) return
     setEnviando(true)
     setProgresso({ feitas: 0, total: files.length })
-    await adicionarFotos(galeria.id, files, aba, visiveis.length, (feitas, total) => setProgresso({ feitas, total }))
+    const r = await adicionarFotos(galeria.id, files, aba, visiveis.length, (feitas, total) => setProgresso({ feitas, total }))
     setEnviando(false)
+    // Antes a barra chegava a 100% mesmo quando o upload falhava e as fotos
+    // sumiam caladas. Agora o fotógrafo vê exatamente o que não subiu.
+    setFalhasUpload(r && r.falhas ? r.falhas : [])
     if (inputRef.current) inputRef.current.value = ''
     await recarregar()
   }
@@ -156,7 +162,12 @@ function Detalhe({ galeria, onVoltar }) {
 
   const salvarConfig = async () => {
     setSalvandoConf(true)
-    await atualizarGaleria(galeria.id, { senha, fotoExtra: fotoExtra === '' ? null : Number(fotoExtra) })
+    await atualizarGaleria(galeria.id, {
+      senha,
+      fotoExtra: fotoExtra === '' ? null : Number(fotoExtra),
+      valorTotal: valorTotal === '' ? 0 : Number(valorTotal),
+      reserva: reserva === '' ? 0 : Number(reserva),
+    })
     setSalvandoConf(false)
   }
 
@@ -205,6 +216,14 @@ function Detalhe({ galeria, onVoltar }) {
           </div>
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <label className="block">
+              <span className="text-xs text-cream-100/40">Valor do ensaio (R$)</span>
+              <input type="number" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} placeholder="ex: 1200" className="mt-0.5 w-28 rounded-lg border border-cream-100/10 bg-cocoa-950 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-cream-100/40">Sinal já pago (R$)</span>
+              <input type="number" value={reserva} onChange={(e) => setReserva(e.target.value)} placeholder="ex: 100" className="mt-0.5 w-28 rounded-lg border border-cream-100/10 bg-cocoa-950 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+            </label>
+            <label className="block">
               <span className="text-xs text-cream-100/40">Foto extra (R$)</span>
               <input type="number" value={fotoExtra} onChange={(e) => setFotoExtra(e.target.value)} placeholder="ex: 30" className="mt-0.5 w-28 rounded-lg border border-cream-100/10 bg-cocoa-950 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
             </label>
@@ -212,6 +231,9 @@ function Detalhe({ galeria, onVoltar }) {
               {salvandoConf ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Salvar
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-cream-100/35">
+            O cliente vê <strong className="text-cream-100/60">valor do ensaio − sinal</strong> + as fotos extras. Ajuste aqui quando o ensaio foi criado sem valor.
+          </p>
         </div>
 
         <div className="rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
@@ -242,6 +264,19 @@ function Detalhe({ galeria, onVoltar }) {
             : 'Provas com marca d\'água, redimensionadas p/ 1024px (leves).'}
         </span>
       </div>
+
+      {falhasUpload.length > 0 && (
+        <div className="mt-4 rounded-2xl bg-red-500/10 p-4 ring-1 ring-red-400/30">
+          <p className="text-sm font-medium text-red-300">
+            {falhasUpload.length} foto(s) NÃO subiram — reenvie estas:
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-red-200/80">
+            {falhasUpload.slice(0, 8).map((f, i) => <li key={i}>• {f.nome} — {f.motivo}</li>)}
+            {falhasUpload.length > 8 && <li>• e mais {falhasUpload.length - 8}…</li>}
+          </ul>
+          <button onClick={() => setFalhasUpload([])} className="mt-3 text-xs text-red-200 underline">dispensar</button>
+        </div>
+      )}
 
       {/* Pagamento online: decisão por galeria, na hora de entregar as fotos */}
       {aba === 'entrega' && (

@@ -9,7 +9,7 @@ const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
 export default function Agenda() {
-  const { agendamentos, diasBloqueados, horariosBloqueados, toggleDiaBloqueado, toggleHorarioBloqueado, horariosDoDia, adicionarHorario, editarHorario, removerHorario, bufferAntes, bufferDepois, setBuffer, confirmarAgendamento, cancelarAgendamento } = useApp()
+  const { agendamentos, clientes, diasBloqueados, horariosBloqueados, toggleDiaBloqueado, toggleHorarioBloqueado, horariosDoDia, adicionarHorario, editarHorario, removerHorario, bufferAntes, bufferDepois, setBuffer, confirmarAgendamento, cancelarAgendamento } = useApp()
   const [ref, setRef] = useState(() => new Date())
   const [diaSel, setDiaSel] = useState(null)
   const [verHistorico, setVerHistorico] = useState(false)
@@ -27,7 +27,18 @@ export default function Agenda() {
   const reservasResolvidas = agendamentos.filter((a) => !(a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr)))
 
   const fmt = (d) => ano + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0')
+
+  // O site não marca mais horário: quem preenche a agenda agora são os ENSAIOS
+  // criados pelo estúdio. Antes o calendário só lia `agendamentos` e por isso
+  // vivia vazio, mesmo com ensaios marcados na ficha do cliente.
+  const ensaiosAgendados = clientes.flatMap((c) =>
+    (c.ensaios || [])
+      .filter((e) => e.data && !['solicitado', 'orcamento', 'cancelado'].includes(e.status))
+      .map((e) => ({ ...e, clienteNome: c.nome, clienteId: c.id }))
+  )
+  const ensaiosDoDia = (ds) => ensaiosAgendados.filter((e) => String(e.data).slice(0, 10) === ds)
   const agsDoDia = (ds) => agendamentos.filter((a) => a.dia === ds)
+  const temEventoNoDia = (ds) => agsDoDia(ds).length > 0 || ensaiosDoDia(ds).length > 0
 
   const celulas = []
   for (let i = 0; i < primeiroDia; i++) celulas.push(null)
@@ -36,13 +47,13 @@ export default function Agenda() {
   return (
     <div>
       <h1 className="font-serif text-3xl">Agendamentos & disponibilidade</h1>
-      <p className="mt-1 text-sm text-cream-100/60">Clique num dia para gerenciar horários. Bloqueie datas e o site esconde os horários ocupados automaticamente.</p>
+      <p className="mt-1 text-sm text-cream-100/60">Os ensaios marcados na ficha do cliente aparecem aqui. Clique num dia para ver o que está agendado.</p>
 
       {/* BUFFER — bloqueio automático antes/depois de cada ensaio */}
       <div className="mt-5 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
         <h3 className="font-serif text-lg">Intervalo entre ensaios</h3>
         <p className="mt-1 max-w-2xl text-sm text-cream-100/55">
-          Defina quantas horas bloquear <strong>antes</strong> e <strong>depois</strong> de cada reserva. Assim, ao reservar um horário, os horários vizinhos somem automaticamente do site — sem ensaios colados.
+          Sua margem de descanso entre um ensaio e outro. Serve de referência ao montar o dia — o site não marca mais horário sozinho, então nada é bloqueado automaticamente por aqui.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-6">
           <label className="flex flex-col gap-1.5">
@@ -92,7 +103,7 @@ export default function Agenda() {
               if (!d) return <div key={i} />
               const ds = fmt(d)
               const bloqueado = diasBloqueados.includes(ds)
-              const temAg = agsDoDia(ds).length > 0
+              const temAg = temEventoNoDia(ds)
               const ehHoje = ds === hojeStr
               const dom = new Date(ano, mes, d).getDay() === 0
               return (
@@ -129,6 +140,7 @@ export default function Agenda() {
               bloqueado={diasBloqueados.includes(diaSel)}
               horariosBloq={horariosBloqueados[diaSel] || []}
               ags={agsDoDia(diaSel)}
+              ensaios={ensaiosDoDia(diaSel)}
               horarios={horariosDoDia(diaSel)}
               onToggleDia={() => toggleDiaBloqueado(diaSel)}
               onToggleHora={(h) => toggleHorarioBloqueado(diaSel, h)}
@@ -216,7 +228,7 @@ export default function Agenda() {
   )
 }
 
-function DiaPainel({ ds, bloqueado, horariosBloq, ags, horarios, onToggleDia, onToggleHora, onEditarHora, onAdicionarHora, onRemoverHora }) {
+function DiaPainel({ ds, bloqueado, horariosBloq, ags, ensaios = [], horarios, onToggleDia, onToggleHora, onEditarHora, onAdicionarHora, onRemoverHora }) {
   const data = new Date(ds + 'T12:00')
   const [aberto, setAberto] = useState(null)
   const [editando, setEditando] = useState('')
@@ -234,9 +246,23 @@ function DiaPainel({ ds, bloqueado, horariosBloq, ags, horarios, onToggleDia, on
         </button>
       </div>
 
+      {ensaios.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs uppercase tracking-wide text-cream-100/40">Ensaios deste dia</p>
+          {ensaios.map((e) => (
+            <div key={e.id} className="rounded-lg bg-clay-500/10 px-3 py-2 text-sm text-clay-200">
+              <span className="flex items-center gap-2">
+                <Clock size={13} /> {e.hora || 'sem hora'} · <strong className="font-medium">{e.clienteNome}</strong>
+              </span>
+              <span className="mt-0.5 block text-xs text-clay-200/60">{e.titulo || e.tipoEnsaio || 'Ensaio'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {ags.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs uppercase tracking-wide text-cream-100/40">Agendado neste dia</p>
+          <p className="text-xs uppercase tracking-wide text-cream-100/40">Reservas do site (histórico)</p>
           {ags.map((a) => (
             <div key={a.id} className="flex items-center gap-2 rounded-lg bg-terracotta-500/10 px-3 py-2 text-sm text-terracotta-300">
               <Clock size={13} /> {a.hora} · {a.nome}

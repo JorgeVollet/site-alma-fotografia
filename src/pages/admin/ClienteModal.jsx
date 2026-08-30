@@ -452,17 +452,22 @@ function BlocoOrcamento({ cliente }) {
 
 /* ---- AGENDADO ---- */
 function BlocoAgendado({ cliente }) {
+  // ANTES lia cliente.agendamento — campo que não existe no cliente mapeado, e
+  // por isso data, horário e local apareciam sempre vazios. A verdade está no
+  // próprio ensaio. Mostra o ensaio marcado mais próximo, não só o [0].
+  const comData = (cliente.ensaios || []).filter((x) => x.data)
+  const e = (comData.length
+    ? [...comData].sort((x, y) => String(x.data).localeCompare(String(y.data)))[0]
+    : (cliente.ensaios || [])[0]) || {}
   const a = cliente.agendamento || {}
-  const e = cliente.ensaios[0] || {}
   return (
     <>
       <Secao icon={Calendar} titulo="Detalhes do agendamento">
         <div className="rounded-2xl bg-cocoa-950 p-4">
           <Campo label="Ensaio" valor={e.titulo} />
-          <Campo label="Data" valor={a.data ? new Date(a.data + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : '—'} />
-          <Campo label="Horário" valor={a.hora} />
-          <Campo label="Local" valor={a.local} />
-          <Campo label="Nº de pessoas" valor={a.pessoas} />
+          <Campo label="Data" valor={e.data ? new Date(String(e.data).slice(0, 10) + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : '—'} />
+          <Campo label="Horário" valor={e.hora || '—'} />
+          <Campo label="Local" valor={e.local || a.local || '—'} />
           <Campo label="Valor" valor={formatBRL(e.valor || 0)} />
         </div>
       </Secao>
@@ -477,9 +482,16 @@ function BlocoAgendado({ cliente }) {
 
 /* ---- PRODUÇÃO ---- */
 function BlocoProducao({ cliente }) {
-  const { producaoOverride, setEditadas } = useApp()
+  // ANTES lia cliente.producao — campo inexistente no cliente mapeado. Fotos
+  // brutas, selecionadas, prazo e situação vinham SEMPRE vazios e a barra ficava
+  // travada em 0%. A verdade está na GALERIA ligada ao ensaio.
+  const { producaoOverride, setEditadas, galerias } = useApp()
   const p = cliente.producao || {}
-  const e = cliente.ensaios[0] || {}
+  const comData = (cliente.ensaios || []).filter((x) => x.data)
+  const e = (comData.length
+    ? [...comData].sort((x, y) => String(y.data).localeCompare(String(x.data)))[0]
+    : (cliente.ensaios || [])[0]) || {}
+  const gal = (galerias || []).find((g) => g.ensaioId === e.id) || null
   const selecionadas = p.selecionadas || 0
   // editadas vem do override (se o usuário ajustou) ou do valor base
   const override = producaoOverride[cliente.id]
@@ -497,10 +509,10 @@ function BlocoProducao({ cliente }) {
       <Secao icon={Camera} titulo="Status da produção">
         <div className="rounded-2xl bg-cocoa-950 p-4">
           <Campo label="Ensaio" valor={e.titulo} />
-          <Campo label="Fotos brutas" valor={p.fotosBrutas} />
-          <Campo label="Selecionadas pelo cliente" valor={p.selecionadas != null ? p.selecionadas : 'aguardando'} />
-          <Campo label="Prazo de entrega" valor={p.prazo ? new Date(p.prazo + 'T12:00').toLocaleDateString('pt-BR') : '—'} />
-          <Campo label="Situação" valor={concluido ? 'Edição concluída ✓' : p.etapaProd} />
+          <Campo label="Galeria" valor={gal ? gal.nome : 'ainda não criada'} />
+          <Campo label="Fotos na galeria" valor={gal ? gal.totalFotos : '—'} />
+          <Campo label="Fotos inclusas no pacote" valor={gal ? gal.fotosInclusas : '—'} />
+          <Campo label="Situação" valor={gal ? statusLabel(gal.status) : 'aguardando galeria'} />
         </div>
       </Secao>
 

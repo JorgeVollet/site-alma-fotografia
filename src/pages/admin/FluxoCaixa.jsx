@@ -7,36 +7,64 @@ import { fetchLancamentos } from '../../lib/financeiro'
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const MESES_FULL = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
 
+// Data do lançamento sem susto de fuso: 'YYYY-MM-DD' vira meio-dia local, senão
+// new Date('2026-01-01') seria UTC e no Brasil voltaria pra 31/12 do ano anterior.
+const dataLocal = (iso) => new Date(String(iso).slice(0, 10) + 'T12:00')
+
 export default function FluxoCaixa() {
   const [todos, setTodos] = useState([])
   const [drill, setDrill] = useState(null) // { titulo, lancamentos }
+  const [ano, setAno] = useState(() => new Date().getFullYear())
 
   useEffect(() => { fetchLancamentos().then((ls) => setTodos(ls.filter((l) => l.data))) }, [])
 
+  // Anos com movimento (p/ o seletor). Sem isso o DRE somava a vida inteira.
+  const anos = Array.from(new Set(todos.map((l) => dataLocal(l.data).getFullYear())))
+    .filter((a) => !isNaN(a)).sort((a, b) => b - a)
+  const anosSel = anos.length ? anos : [ano]
+
+  // ANTES: agrupava só por getMonth(), então Jan/2026 e Jan/2027 caíam na MESMA
+  // barra e os totais do DRE misturavam todos os anos.
+  const doAno = todos.filter((l) => dataLocal(l.data).getFullYear() === ano)
+
   const porMes = {}
   for (let m = 0; m < 12; m++) porMes[m] = { entrada: 0, saida: 0, itens: [] }
-  todos.forEach((l) => {
-    const mes = new Date(l.data + 'T12:00').getMonth()
+  doAno.forEach((l) => {
+    const mes = dataLocal(l.data).getMonth()
     if (!isNaN(mes)) { porMes[mes][l.tipo] += l.valor; porMes[mes].itens.push(l) }
   })
   const mesesComDados = Object.keys(porMes).map(Number).filter((m) => porMes[m].entrada > 0 || porMes[m].saida > 0)
   const maxVal = Math.max(1, ...mesesComDados.flatMap((m) => [porMes[m].entrada, porMes[m].saida]))
 
-  const receitaTotal = todos.filter((l) => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0)
+  const receitaTotal = doAno.filter((l) => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0)
   const cats = {}
-  todos.filter((l) => l.tipo === 'saida').forEach((l) => { cats[l.categoria] = (cats[l.categoria] || { total: 0, itens: [] }); cats[l.categoria].total += l.valor; cats[l.categoria].itens.push(l) })
+  doAno.filter((l) => l.tipo === 'saida').forEach((l) => { cats[l.categoria] = (cats[l.categoria] || { total: 0, itens: [] }); cats[l.categoria].total += l.valor; cats[l.categoria].itens.push(l) })
   const despesaTotal = Object.values(cats).reduce((s, v) => s + v.total, 0)
   const lucro = receitaTotal - despesaTotal
   const margem = receitaTotal > 0 ? Math.round((lucro / receitaTotal) * 100) : 0
 
-  const abrirMes = (m) => setDrill({ titulo: 'Movimento de ' + MESES_FULL[m], lancamentos: porMes[m].itens })
+  const abrirMes = (m) => setDrill({ titulo: 'Movimento de ' + MESES_FULL[m] + '/' + ano, lancamentos: porMes[m].itens })
   const abrirCat = (cat) => setDrill({ titulo: 'Despesas: ' + cat, lancamentos: cats[cat].itens })
-  const abrirReceita = () => setDrill({ titulo: 'Todas as entradas', lancamentos: todos.filter((l) => l.tipo === 'entrada') })
+  const abrirReceita = () => setDrill({ titulo: 'Entradas de ' + ano, lancamentos: doAno.filter((l) => l.tipo === 'entrada') })
 
   return (
     <div>
-      <h1 className="font-serif text-3xl">Fluxo de caixa & DRE</h1>
-      <p className="mt-1 text-sm text-cream-100/60">Saúde financeira do estúdio. Clique nos meses ou categorias para ver os detalhes.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl">Fluxo de caixa & DRE</h1>
+          <p className="mt-1 text-sm text-cream-100/60">Saúde financeira do estúdio. Clique nos meses ou categorias para ver os detalhes.</p>
+        </div>
+        <label className="flex items-center gap-2 text-xs text-cream-100/60">
+          Ano
+          <select
+            value={ano}
+            onChange={(e) => setAno(Number(e.target.value))}
+            className="rounded-xl border border-cream-100/10 bg-cocoa-950 px-3 py-2 text-sm text-cream-100 outline-none focus:border-terracotta-400"
+          >
+            {anosSel.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <button onClick={abrirReceita} className="rounded-2xl bg-clay-400/5 p-5 text-left ring-1 ring-clay-400/20 transition hover:ring-clay-400/40">
