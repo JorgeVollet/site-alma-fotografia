@@ -103,7 +103,7 @@ export default function Footer() {
         <div className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-cream-100/10 pt-7 text-xs text-cream-100/40 md:flex-row">
           <p>© {new Date().getFullYear()} {STUDIO.nome} · {STUDIO.cidade}/{STUDIO.estado}. Todos os direitos reservados.</p>
           <p>
-            Site demonstrativo — feito com carinho por{' '}
+            Feito com carinho por{' '}
             <a
               href="https://www.jvwebstudio.agency"
               target="_blank"
