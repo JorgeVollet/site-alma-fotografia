@@ -129,6 +129,30 @@ await t('carregar_contrato recusa token inválido', async () => {
   return 'devolveu contrato p/ token falso: ' + JSON.stringify(data).slice(0, 120)
 })
 
+console.log('\n== 4b. CORRECOES DA MIGRATION 19 (falham ate voce roda-la) ==')
+await t('anon NAO insere agendamento (injecao de receita falsa)', async () => {
+  const { error } = await sb.from('agendamentos').insert({
+    nome: '__teste_seguranca__', status: 'a-confirmar', valor_reserva: 9999,
+  }).select()
+  if (!error) return 'CONSEGUIU INSERIR RESERVA - receita falsa entra no caixa'
+  // Exige bloqueio de PERMISSAO (42501) ou de RLS. Um erro de coluna
+  // obrigatoria faria o teste "passar" pelo motivo errado.
+  const bloqueio = error.code === '42501' || /permission denied|row-level security/i.test(error.message)
+  return bloqueio ? true : 'falhou por outro motivo (' + error.code + '): ' + error.message
+})
+await t('galeria sem senha nao abre com senha vazia', async () => {
+  const { data } = await sb.rpc('entrar_galeria', { p_codigo: '__nao_existe__', p_senha: '' })
+  if (data && data.ok === true) return 'ENTROU com senha vazia'
+  return true
+})
+await t('finalizar_selecao responde no formato v4', async () => {
+  const { data, error } = await sb.rpc('finalizar_selecao', {
+    p_token: '00000000-0000-0000-0000-000000000000', p_pagar_agora: true,
+  })
+  if (error) return 'erro: ' + error.message
+  return data && data.ok === false ? true : 'formato inesperado'
+})
+
 console.log('\n== 5. BUCKETS PÚBLICOS (não podem ser listáveis) ==')
 for (const b of ['previews', 'entregas']) {
   await t('bucket ' + b + ' NÃO lista arquivos p/ anon', async () => {
