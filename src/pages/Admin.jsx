@@ -78,11 +78,23 @@ function AdminLogin() {
     })
     setEntrando(false)
     if (error) {
-      setErro(
-        error.message === 'Invalid login credentials'
-          ? 'E-mail ou senha incorretos.'
-          : 'Não foi possível entrar. Tente de novo.'
-      )
+      // ANTES: qualquer erro que nao fosse senha errada virava "Tente de novo",
+      // escondendo o motivo real (e-mail nao confirmado, usuario bloqueado,
+      // Supabase sem configuracao...). Agora cada caso diz o que fazer.
+      const m = (error.message || '').toLowerCase()
+      if (m.includes('invalid login credentials')) {
+        setErro('E-mail ou senha incorretos.')
+      } else if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+        setErro('Este e-mail ainda não foi confirmado. Confirme o usuário no painel do Supabase (Authentication > Users) e tente de novo.')
+      } else if (m.includes('banned') || m.includes('blocked')) {
+        setErro('Este usuário está bloqueado. Verifique em Authentication > Users no Supabase.')
+      } else if (error.code === 'SEM_CONFIG' || m.includes('não configurado')) {
+        setErro('O sistema não está conectado ao banco. Faltam as variáveis de ambiente neste deploy.')
+      } else if (m.includes('failed to fetch') || m.includes('network')) {
+        setErro('Sem conexão com o servidor. Verifique a internet e tente de novo.')
+      } else {
+        setErro('Não foi possível entrar: ' + error.message)
+      }
     }
     // sucesso: o onAuthStateChange do componente Admin troca a tela sozinho.
   }
