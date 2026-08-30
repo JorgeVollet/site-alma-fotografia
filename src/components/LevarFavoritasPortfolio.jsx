@@ -15,7 +15,8 @@ const field = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 
 //  e confirma. Cria um ensaio no portfólio (criarEnsaio + adicionarFotoEnsaio).
 // =====================================================================
 export default function LevarFavoritasPortfolio({ fotos = [], clienteNome = '', ensaioNome = '', onClose, onConcluido }) {
-  const { criarEnsaio, adicionarFotoEnsaio } = useApp()
+  const { criarEnsaio, adicionarFotosPorUrl } = useApp()
+  const [levando, setLevando] = useState(false)
   const [selecionadas, setSelecionadas] = useState(() => fotos.map((f) => f.id))
   const [titulo, setTitulo] = useState(ensaioNome || (clienteNome ? 'Ensaio ' + clienteNome : ''))
   const [subtitulo, setSubtitulo] = useState('')
@@ -25,11 +26,14 @@ export default function LevarFavoritasPortfolio({ fotos = [], clienteNome = '', 
   const fotosFinais = fotos.filter((f) => selecionadas.includes(f.id))
   const valido = titulo.trim() && fotosFinais.length > 0
 
-  const confirmar = () => {
-    if (!valido) return
-    const capa = fotosFinais[0]?.src
-    const id = criarEnsaio({ titulo: titulo.trim(), subtitulo: subtitulo.trim(), categoria, capa })
-    adicionarFotoEnsaio(id, fotosFinais.map((f) => f.src))
+  const confirmar = async () => {
+    if (!valido || levando) return
+    setLevando(true)
+    // as fotos sao COPIADAS para o bucket do portfolio (nao basta guardar a URL
+    // da galeria: ela tem marca d'agua e some se a galeria for apagada)
+    const id = await criarEnsaio({ titulo: titulo.trim(), subtitulo: subtitulo.trim(), categoria })
+    if (id) await adicionarFotosPorUrl(id, fotosFinais.map((f) => f.src))
+    setLevando(false)
     onConcluido && onConcluido(id, fotosFinais.length)
   }
 
@@ -89,7 +93,7 @@ export default function LevarFavoritasPortfolio({ fotos = [], clienteNome = '', 
         </div>
 
         <div className="border-t border-cream-100/10 p-6">
-          <button onClick={confirmar} disabled={!valido} className="btn-light w-full disabled:opacity-40">
+          <button onClick={confirmar} disabled={!valido || levando} className="btn-light w-full disabled:opacity-40">
             <ImagePlus size={16} /> Adicionar {fotosFinais.length} {fotosFinais.length === 1 ? 'foto' : 'fotos'} ao portfólio
           </button>
         </div>

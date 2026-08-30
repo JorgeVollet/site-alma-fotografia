@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, ArrowLeft, X, Check, Trash2, ImagePlus, Eye, Pencil } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, ArrowLeft, X, Check, Trash2, ImagePlus, Eye, Pencil, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Photo from '../../components/Photo'
 import { useApp } from '../../context/AppContext'
@@ -115,7 +115,6 @@ function FormEnsaio({ inicial, onClose, onSalvar }) {
     titulo: inicial?.titulo || '',
     subtitulo: inicial?.subtitulo || '',
     categoria: inicial?.categoria || CATS[0].id,
-    capa: inicial?.capa || '',
   })
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const valido = form.titulo.trim() && form.categoria
@@ -143,15 +142,9 @@ function FormEnsaio({ inicial, onClose, onSalvar }) {
               {CATS.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
           </label>
-          <label className="block">
-            <span className="text-sm text-cream-100/80">Foto de capa <span className="text-cream-100/40">(URL — opcional)</span></span>
-            <input className={field} value={form.capa} onChange={(e) => set('capa', e.target.value)} placeholder="https://…  (ou deixe vazio p/ usar a 1ª foto)" />
-          </label>
-          {form.capa && (
-            <div className="overflow-hidden rounded-xl ring-1 ring-cream-100/10">
-              <Photo src={form.capa} alt="Prévia da capa" className="aspect-[16/9]" />
-            </div>
-          )}
+          <p className="rounded-xl bg-cocoa-950 p-3 text-xs text-cream-100/50">
+            A <strong className="text-cream-100/75">capa</strong> é a primeira foto do ensaio — suba as fotos na próxima tela e ela se ajusta sozinha.
+          </p>
         </div>
         <button onClick={() => valido && onSalvar(form)} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40">
           <Check size={16} /> {inicial ? 'Salvar alterações' : 'Criar ensaio'}
@@ -166,12 +159,23 @@ function FormEnsaio({ inicial, onClose, onSalvar }) {
 // ---------------------------------------------------------------------
 function GerenciarFotos({ ensaio, onVoltar }) {
   const { adicionarFotoEnsaio, removerFotoEnsaio } = useApp()
-  const [urls, setUrls] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [progresso, setProgresso] = useState({ feitas: 0, total: 0 })
+  const [falhas, setFalhas] = useState([])
+  const inputRef = useRef(null)
 
-  const adicionar = () => {
-    const lista = urls.split(/[\n,]+/).map((u) => u.trim()).filter(Boolean)
-    if (lista.length) adicionarFotoEnsaio(ensaio.id, lista)
-    setUrls('')
+  // Upload REAL para o bucket do Supabase. Antes so aceitava colar URL e o
+  // resultado ficava no localStorage — invisivel para quem visitava o site.
+  const aoEscolher = async (e) => {
+    const files = e.target.files
+    if (!files || !files.length) return
+    setEnviando(true)
+    setFalhas([])
+    setProgresso({ feitas: 0, total: files.length })
+    const r = await adicionarFotoEnsaio(ensaio.id, files, (feitas, total) => setProgresso({ feitas, total }))
+    setEnviando(false)
+    setFalhas(r && r.falhas ? r.falhas : [])
+    if (inputRef.current) inputRef.current.value = ''
   }
 
   return (
@@ -192,24 +196,29 @@ function GerenciarFotos({ ensaio, onVoltar }) {
         </Link>
       </div>
 
-      {/* Adicionar fotos */}
+      {/* Adicionar fotos — upload direto para o bucket */}
       <div className="mt-6 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
         <p className="flex items-center gap-2 text-sm font-medium"><ImagePlus size={16} className="text-terracotta-400" /> Adicionar fotos</p>
-        <p className="mt-1 text-xs text-cream-100/50">Cole uma ou várias URLs de imagem (uma por linha ou separadas por vírgula).</p>
-        <textarea
-          value={urls}
-          onChange={(e) => setUrls(e.target.value)}
-          rows={3}
-          className="mt-3 w-full resize-y rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400"
-          placeholder="https://…/foto1.jpg&#10;https://…/foto2.jpg"
-        />
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-cream-100/40">Upload de arquivo direto entra na versão com Supabase.</p>
-          <button onClick={adicionar} disabled={!urls.trim()} className="btn-light !py-2.5 text-xs disabled:opacity-40">
-            <Plus size={15} /> Adicionar
-          </button>
-        </div>
+        <p className="mt-1 text-xs text-cream-100/50">
+          Escolha os arquivos no computador. Reduzimos para 2000px antes de subir — carrega rápido para o visitante e continua ótimo na tela.
+        </p>
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={aoEscolher} />
+        <button onClick={() => inputRef.current?.click()} disabled={enviando} className="btn-light mt-3 !py-2.5 text-xs disabled:opacity-50">
+          {enviando
+            ? <><Loader2 size={15} className="animate-spin" /> Enviando {progresso.feitas}/{progresso.total}…</>
+            : <><Plus size={15} /> Escolher fotos</>}
+        </button>
+
+        {falhas.length > 0 && (
+          <div className="mt-4 rounded-xl bg-red-500/10 p-3 ring-1 ring-red-400/30">
+            <p className="text-xs font-medium text-red-300">{falhas.length} foto(s) não subiram:</p>
+            <ul className="mt-1 space-y-0.5 text-[11px] text-red-200/80">
+              {falhas.slice(0, 6).map((f, i) => <li key={i}>• {f.nome} — {f.motivo}</li>)}
+            </ul>
+          </div>
+        )}
       </div>
+
 
       {/* Grade de fotos */}
       <h3 className="mt-8 font-serif text-xl">Fotos do ensaio</h3>

@@ -5,6 +5,11 @@ import { FUNIL_ETAPAS } from '../data/crm'
 import { etapaFunilDeGaleria } from '../data/statusEnsaio'
 import { fetchClientes, criarCliente, atualizarCliente, moverClienteFunil } from '../lib/clientes'
 import { fetchEnsaios, criarEnsaio as dbCriarEnsaio, atualizarEnsaio as dbAtualizarEnsaio, removerEnsaio as dbRemoverEnsaio } from '../lib/ensaios'
+import {
+  fetchPortfolio, criarEnsaioPortfolio, atualizarEnsaioPortfolio,
+  excluirEnsaioPortfolio, subirFotosPortfolio, removerFotoPortfolio,
+  copiarFotosParaPortfolio,
+} from '../lib/portfolio'
 import { criarAgendamento, fetchAgendamentos, atualizarAgendamentoStatus, confirmarAgendamentoDB } from '../lib/agendamentos'
 import { fetchGalerias, atualizarGaleria } from '../lib/galerias'
 import {
@@ -765,56 +770,67 @@ export function AppProvider({ children }) {
     setState((s) => ({ ...s, albuns: s.albuns.filter((a) => a.id !== id) }))
   }, [])
 
-  // --- Portfólio: ensaios (camada local, trocável por Supabase) -------
-  const criarEnsaio = useCallback(({ titulo, subtitulo = '', categoria, capa = '' }) => {
-    const id = 'ens-' + Date.now().toString(36)
-    setState((s) => ({
-      ...s,
-      ensaios: [
-        { id, titulo, subtitulo, categoria, capa, fotos: [], criadoEm: new Date().toISOString() },
-        ...s.ensaios,
-      ],
-    }))
-    return id
+  // --- Portfólio: ensaios (BANCO — Bloco 21) -------------------------
+  // Antes isto vivia no localStorage do navegador do admin: curar o portfólio
+  // pelo painel não mudava nada no site, e trocar de máquina zerava as edições.
+  // Agora é o banco quem manda. As fotos da pasta /fotos continuam servindo de
+  // base inicial enquanto o portfólio do banco estiver vazio.
+  const [portfolioDB, setPortfolioDB] = useState(null) // null = ainda carregando
+
+  const recarregarPortfolio = useCallback(async () => {
+    setPortfolioDB(await fetchPortfolio())
   }, [])
 
-  const editarEnsaio = useCallback((id, campos) => {
-    setState((s) => ({
-      ...s,
-      ensaios: s.ensaios.map((e) => (e.id === id ? { ...e, ...campos } : e)),
-    }))
+  useEffect(() => { recarregarPortfolio() }, [recarregarPortfolio])
+
+  // enquanto o banco não tiver nada, mostra a seleção que vem do código
+  const ensaiosPortfolio = useMemo(() => {
+    if (portfolioDB === null) return state.ensaios     // carregando: não pisca
+    return portfolioDB.length > 0 ? portfolioDB : state.ensaios
+  }, [portfolioDB, state.ensaios])
+
+  const portfolioNoBanco = Array.isArray(portfolioDB) && portfolioDB.length > 0
+
+  const criarEnsaio = useCallback(async (dados) => {
+    const novo = await criarEnsaioPortfolio({
+      titulo: dados.titulo, subtitulo: dados.subtitulo || '',
+      categoria: dados.categoria, capaPath: dados.capaPath || null,
+    })
+    if (novo) setPortfolioDB((l) => [...(l || []), novo])
+    return novo ? novo.id : null
   }, [])
 
-  const excluirEnsaio = useCallback((id) => {
-    setState((s) => ({ ...s, ensaios: s.ensaios.filter((e) => e.id !== id) }))
+  const editarEnsaio = useCallback(async (id, campos) => {
+    const at = await atualizarEnsaioPortfolio(id, campos)
+    if (at) setPortfolioDB((l) => (l || []).map((e) => (e.id === id ? at : e)))
+    return at
   }, [])
 
-  const adicionarFotoEnsaio = useCallback((ensaioId, src) => {
-    const fotos = Array.isArray(src) ? src : [src]
-    setState((s) => ({
-      ...s,
-      ensaios: s.ensaios.map((e) =>
-        e.id === ensaioId
-          ? {
-              ...e,
-              fotos: [
-                ...e.fotos,
-                ...fotos.map((f, i) => ({ id: 'f-' + Date.now().toString(36) + '-' + i, src: f })),
-              ],
-            }
-          : e
-      ),
-    }))
+  const excluirEnsaio = useCallback(async (id) => {
+    const ok = await excluirEnsaioPortfolio(id)
+    if (ok) setPortfolioDB((l) => (l || []).filter((e) => e.id !== id))
+    return ok
   }, [])
 
-  const removerFotoEnsaio = useCallback((ensaioId, fotoId) => {
-    setState((s) => ({
-      ...s,
-      ensaios: s.ensaios.map((e) =>
-        e.id === ensaioId ? { ...e, fotos: e.fotos.filter((f) => f.id !== fotoId) } : e
-      ),
-    }))
-  }, [])
+  // recebe FileList (upload real) — o antigo recebia caminho de string
+  const adicionarFotoEnsaio = useCallback(async (ensaioId, files, onProgress) => {
+    const r = await subirFotosPortfolio(ensaioId, files, onProgress)
+    await recarregarPortfolio()
+    return r
+  }, [recarregarPortfolio])
+
+  // usado pelo "levar favoritas para o portfólio": copia do bucket da galeria
+  const adicionarFotosPorUrl = useCallback(async (ensaioId, urls, onProgress) => {
+    const r = await copiarFotosParaPortfolio(ensaioId, urls, onProgress)
+    await recarregarPortfolio()
+    return r
+  }, [recarregarPortfolio])
+
+  const removerFotoEnsaio = useCallback(async (_ensaioId, fotoId) => {
+    const ok = await removerFotoPortfolio(fotoId)
+    if (ok) await recarregarPortfolio()
+    return ok
+  }, [recarregarPortfolio])
 
   const value = {
     ...state,
@@ -893,7 +909,11 @@ export function AppProvider({ children }) {
     editarEnsaio,
     excluirEnsaio,
     adicionarFotoEnsaio,
+    adicionarFotosPorUrl,
     removerFotoEnsaio,
+    ensaios: ensaiosPortfolio,   // sobrescreve o state local pelo do banco
+    portfolioNoBanco,
+    recarregarPortfolio,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
