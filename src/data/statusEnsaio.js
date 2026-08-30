@@ -30,3 +30,15 @@ export function etapaFunilDeGaleria(gstatus) {
   if (gstatus === 'pronto') return 'entregue'
   return 'producao' // selecionando/enviado/editando = em produção
 }
+
+// Opções do seletor de situação do ensaio (usado no editor).
+export const STATUS_ENSAIO = [
+  { id: 'solicitado', nome: 'Solicitado (a orçar)' },
+  { id: 'orcamento', nome: 'Orçamento enviado' },
+  { id: 'agendado', nome: 'Agendado (fechado)' },
+  { id: 'selecionando', nome: 'Cliente escolhendo' },
+  { id: 'enviado', nome: 'Seleção recebida' },
+  { id: 'editando', nome: 'Em edição' },
+  { id: 'pronto', nome: 'Pronto' },
+  { id: 'entregue', nome: 'Entregue' },
+]

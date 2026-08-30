@@ -20,12 +20,13 @@ import listPlugin from '@fullcalendar/list'
 import interactionPlugin from '@fullcalendar/interaction'
 import ptBr from '@fullcalendar/core/locales/pt-br'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Trash2, Check, Plus, Loader2 } from 'lucide-react'
+import { X, Trash2, Check, Plus, Loader2, Pencil } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { formatBRL } from '../../components/Money'
 import { fetchEventos, criarEvento, atualizarEvento, excluirEvento, CORES_EVENTO, corDoTipo } from '../../lib/eventos'
 import { fetchContasReceber } from '../../lib/galerias'
 import { atualizarEnsaio } from '../../lib/ensaios'
+import EditorEnsaio from '../../components/ensaio/EditorEnsaio'
 
 const TIPOS = ['reuniao', 'entrega', 'bloqueio', 'pessoal', 'evento']
 
@@ -46,6 +47,7 @@ export default function Agenda() {
   const [carregando, setCarregando] = useState(true)
   const [editor, setEditor] = useState(null)   // compromisso em edição, ou {novo:true}
   const [detalhe, setDetalhe] = useState(null) // ensaio / aniversário / conta clicado
+  const [editandoEnsaio, setEditandoEnsaio] = useState(null) // { ensaio, clienteId }
   const [mostrar, setMostrar] = useState({ ensaio: true, compromisso: true, aniversario: true, conta: true })
 
   const recarregar = useCallback(async () => {
@@ -245,7 +247,18 @@ export default function Agenda() {
             onSalvo={async () => { setEditor(null); await recarregar() }}
           />
         )}
-        {detalhe && <DetalheItem key="detalhe" item={detalhe} onClose={() => setDetalhe(null)} />}
+        {detalhe && (
+          <DetalheItem key="detalhe" item={detalhe}
+            onEditar={() => { setEditandoEnsaio({ ensaio: detalhe.ensaio, clienteId: detalhe.cliente && detalhe.cliente.id }); setDetalhe(null) }}
+            onClose={() => setDetalhe(null)} />
+        )}
+        {editandoEnsaio && (
+          <EditorEnsaio key="ed-ensaio"
+            ensaio={editandoEnsaio.ensaio}
+            clienteId={editandoEnsaio.clienteId}
+            onClose={() => setEditandoEnsaio(null)}
+            onSalvo={() => setEditandoEnsaio(null)} />
+        )}
       </AnimatePresence>
     </div>
   )
@@ -363,7 +376,7 @@ function EditorEvento({ evento, inicioSugerido, diaInteiroSugerido, clientes, on
 }
 
 /* ---------------- Detalhe de ensaio / aniversário / conta ---------------- */
-function DetalheItem({ item, onClose }) {
+function DetalheItem({ item, onEditar, onClose }) {
   const { fonte, ensaio, cliente, conta } = item
   const quando = item.inicio
     ? new Date(item.inicio).toLocaleString('pt-BR',
@@ -408,8 +421,14 @@ function DetalheItem({ item, onClose }) {
           )}
         </div>
 
+        {fonte === 'ensaio' && (
+          <button onClick={onEditar} className="btn-light mt-4 w-full !py-2.5 text-xs">
+            <Pencil size={14} /> Editar ensaio
+          </button>
+        )}
+
         <p className="mt-4 text-[11px] text-cream-100/40">
-          {fonte === 'ensaio' && 'Arraste no calendário para remarcar. Para editar valor, situação e cobranças, abra este ensaio na ficha do cliente.'}
+          {fonte === 'ensaio' && 'Arraste no calendário para remarcar sem abrir nada.'}
           {fonte === 'aniversario' && 'As mensagens de aniversário ficam na Visão geral, com modelos prontos.'}
           {fonte === 'conta' && 'Para receber ou reabrir, vá em Contas a pagar/receber.'}
         </p>

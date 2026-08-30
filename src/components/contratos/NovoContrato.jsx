@@ -13,11 +13,24 @@ const LINK_BASE = 'almafotografia.com.br/assinar/'
 // • o EnsaioModal/ClienteModal passa clientePre + ensaioPre p/ já vir preenchido
 //   e bloquearCliente, e zClass='z-[90]' p/ ficar acima do modal que o abriu.
 export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, ensaioPre, bloquearCliente = false, modoInicial = 'template', zClass = 'z-[70]' }) {
-  const { clientes } = useApp()
+  const { clientes, adicionarEnsaioCliente } = useApp()
   const [modo, setModo] = useState(modoInicial) // template | zero | pdf
   const [cliente, setCliente] = useState(clientePre || '')
-  const { adicionarEnsaioCliente } = useApp()
   const [ensaioId, setEnsaioId] = useState(ensaioPre?.id || '')
+
+  const [valor, setValor] = useState(ensaioPre?.valor ? String(ensaioPre.valor) : '')
+  const [ensaio, setEnsaio] = useState(ensaioPre?.tipo || ensaioPre?.titulo || '')
+  const [modeloId, setModeloId] = useState('')
+  const [titulo, setTitulo] = useState('')
+  const [clausulas, setClausulas] = useState([''])
+  const [pdf, setPdf] = useState(null)
+  const [pdfNome, setPdfNome] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+  const fileRef = useRef(null)
+
+  const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
+  const clienteObj = clientes.find((c) => c.id === cliente)
 
   // Contrato SEM ensaio vinculado cobra o mesmo dinheiro duas vezes: a checagem
   // anti-duplicidade pergunta "esse ensaio já tem cobrança?" e, sem ensaio, não
@@ -32,19 +45,6 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
       if (lista[0].valor) setValor(String(lista[0].valor))
     }
   }, [clienteObj, ensaioId, ensaioPre])
-  const [valor, setValor] = useState(ensaioPre?.valor ? String(ensaioPre.valor) : '')
-  const [ensaio, setEnsaio] = useState(ensaioPre?.tipo || ensaioPre?.titulo || '')
-  const [modeloId, setModeloId] = useState('')
-  const [titulo, setTitulo] = useState('')
-  const [clausulas, setClausulas] = useState([''])
-  const [pdf, setPdf] = useState(null)
-  const [pdfNome, setPdfNome] = useState('')
-  const [salvando, setSalvando] = useState(false)
-  const [erro, setErro] = useState('')
-  const fileRef = useRef(null)
-
-  const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
-  const clienteObj = clientes.find((c) => c.id === cliente)
 
   const onPdf = (e) => {
     const f = e.target.files && e.target.files[0]

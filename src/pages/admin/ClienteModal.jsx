@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Mail, Phone, Calendar, Sparkles, FileText,
-  Plus, Minus, Check, Trash2, Send, Camera, Wand2, Loader2, ChevronRight, Wallet,
+  Plus, Minus, Check, Trash2, Send, Camera, Wand2, Loader2, ChevronRight, Wallet, Pencil,
 } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
 import MensagemModal from '../../components/MensagemModal'
@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext'
 import { usePacotes, useProdutos } from '../../lib/catalogo'
 import { fetchContaGaleria, fetchContasDaGaleria } from '../../lib/galerias'
 import { fecharNegocio } from '../../lib/ensaios'
+import EditorEnsaio from '../../components/ensaio/EditorEnsaio'
 import NovoContrato, { ModalEnviar } from '../../components/contratos/NovoContrato'
 import { hojeISO } from '../../lib/datas'
 
@@ -81,6 +82,10 @@ export default function ClienteModal({ cliente, etapaAtual, onClose, onMover }) 
 
           {/* Pop-up do ensaio — ficha integrada (de onde vem cada coisa) */}
           <AnimatePresence>
+            {editandoEnsaio && (
+              <EditorEnsaio key="ed-ensaio" ensaio={ensaio} clienteId={cliente.id}
+                onClose={() => setEditandoEnsaio(false)} onSalvo={() => setEditandoEnsaio(false)} />
+            )}
             {ensaioAberto && <EnsaioModal ensaio={ensaioAberto} cliente={cliente} onClose={() => setEnsaioAberto(null)} />}
           </AnimatePresence>
         </div>
@@ -145,6 +150,9 @@ function EnsaioModal({ ensaio, cliente, onClose }) {
   const [conta, setConta] = useState(undefined) // undefined=carregando · null=nenhuma
   const [novoContrato, setNovoContrato] = useState(false)
   const [enviarCt, setEnviarCt] = useState(null)
+  const [editandoEnsaio, setEditandoEnsaio] = useState(false)
+  // ja fechado = situacao fora de solicitado/orcamento E com valor definido
+  const jaFechado = !['solicitado', 'orcamento'].includes(ensaio.status) && Number(ensaio.valor) > 0
   const [fechando, setFechando] = useState(false)
   const [form, setForm] = useState({
     valor: ensaio.valor || '',
@@ -235,10 +243,13 @@ function EnsaioModal({ ensaio, cliente, onClose }) {
           {/* FECHAR NEGÓCIO */}
           <div className="rounded-2xl bg-cocoa-950 p-4 ring-1 ring-terracotta-400/20">
             <p className="flex items-center gap-2 text-sm font-medium text-cream-100/90">
-              <Wallet size={15} className="text-terracotta-400" /> Fechar negócio
+              <Wallet size={15} className="text-terracotta-400" />
+              {jaFechado ? 'Valores do negócio' : 'Fechar negócio'}
             </p>
             <p className="mt-1 text-[11px] text-cream-100/45">
-              Combinou o valor no WhatsApp? Digite aqui uma vez — o sistema cria a cobrança do sinal e a do saldo, e a galeria já nasce com os números certos.
+              {jaFechado
+                ? 'Este ensaio já está fechado e as cobranças foram geradas. Mudou algo no combinado? Ajuste aqui — o sistema recalcula o que ainda está em aberto e nunca mexe no que já foi pago.'
+                : 'Combinou o valor no WhatsApp? Digite aqui uma vez — o sistema cria a cobrança do sinal e a do saldo, e a galeria já nasce com os números certos.'}
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="block">
@@ -269,13 +280,16 @@ function EnsaioModal({ ensaio, cliente, onClose }) {
             )}
             <button onClick={fechar} disabled={fechando || !(Number(form.valor) > 0)}
               className="btn-light mt-3 w-full !py-2.5 text-xs disabled:opacity-40">
-              {fechando ? <><Loader2 size={14} className="animate-spin" /> Gerando cobranças…</> : <><Check size={14} /> Fechar e gerar cobranças</>}
+              {fechando
+                ? <><Loader2 size={14} className="animate-spin" /> Atualizando…</>
+                : <><Check size={14} /> {jaFechado ? 'Atualizar valores' : 'Fechar e gerar cobranças'}</>}
             </button>
             {msgFechar && <p className="mt-2 text-[11px] text-clay-300">{msgFechar}</p>}
           </div>
 
           {/* Ações — criar/enviar contrato a partir do ensaio (mesmo poder da aba Contratos) */}
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => setEditandoEnsaio(true)} className="btn-light flex-1 !py-2.5 text-xs"><Pencil size={14} /> Editar ensaio</button>
             {!contrato && <button onClick={() => setNovoContrato(true)} className="btn-light flex-1 !py-2.5 text-xs"><FileText size={14} /> Criar contrato</button>}
             {contrato && contrato.status !== 'assinado' && (
               <button onClick={() => setEnviarCt({ ...contrato, clienteNome: contrato.clienteNome || cliente.nome, telefone: contrato.telefone || cliente.telefone })} className="btn-light flex-1 !py-2.5 text-xs"><Send size={14} /> Enviar contrato p/ assinatura</button>
