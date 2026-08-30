@@ -16,6 +16,7 @@ export default function Assinar() {
   const [carregando, setCarregando] = useState(true)
   const [temAssinatura, setTemAssinatura] = useState(false)
   const [confirmouPdf, setConfirmouPdf] = useState(false)
+  const [erroAssinar, setErroAssinar] = useState('')
   const [assinado, setAssinado] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const desenhando = useRef(false)
@@ -86,7 +87,10 @@ export default function Assinar() {
     const dataURL = canvasRef.current.toDataURL('image/png')
     const res = await assinarContratoPublico(token, dataURL)
     setSalvando(false)
-    if (res && res.ok) setAssinado(true)
+    if (res && res.ok) { setErroAssinar(''); setAssinado(true) }
+    // antes o botão apenas parava: a pessoa assinava, nada acontecia e ela não
+    // tinha como saber que o contrato NÃO foi registrado
+    else setErroAssinar((res && res.erro) || 'Não conseguimos registrar a sua assinatura agora. Tente de novo em instantes ou fale com o estúdio.')
   }
 
   const clausulas = (Array.isArray(contrato.clausulas) && contrato.clausulas.length)
@@ -171,6 +175,9 @@ export default function Assinar() {
               </label>
             )}
 
+            {erroAssinar && (
+              <p className="mt-5 rounded-xl bg-red-500/10 p-3 text-sm text-red-600 ring-1 ring-red-500/30">{erroAssinar}</p>
+            )}
             <button onClick={confirmar} disabled={!temAssinatura || salvando || (precisaConfirmarPdf && !confirmouPdf)} className="btn-primary mt-6 w-full disabled:opacity-40">
               {salvando ? <><Loader2 size={16} className="animate-spin" /> Registrando…</> : <><Check size={16} /> Assinar contrato</>}
             </button>

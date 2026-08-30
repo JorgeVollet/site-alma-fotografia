@@ -13,6 +13,7 @@ import { useApp } from '../../context/AppContext'
 import { usePacotes, useProdutos } from '../../lib/catalogo'
 import { fetchContaGaleria } from '../../lib/galerias'
 import NovoContrato, { ModalEnviar } from '../../components/contratos/NovoContrato'
+import { hojeISO } from '../../lib/datas'
 
 // Modal contextual do cliente — muda conforme a etapa do funil
 export default function ClienteModal({ cliente, etapaAtual, onClose, onMover }) {
@@ -455,10 +456,16 @@ function BlocoAgendado({ cliente }) {
   // ANTES lia cliente.agendamento — campo que não existe no cliente mapeado, e
   // por isso data, horário e local apareciam sempre vazios. A verdade está no
   // próprio ensaio. Mostra o ensaio marcado mais próximo, não só o [0].
+  // Mostra o PRÓXIMO ensaio marcado (o que interessa em "Agendado"); se todos já
+  // passaram, mostra o mais recente. Ordenar só crescente pegava o mais ANTIGO e
+  // exibia data, hora e valor de um ensaio já entregue.
   const comData = (cliente.ensaios || []).filter((x) => x.data)
-  const e = (comData.length
-    ? [...comData].sort((x, y) => String(x.data).localeCompare(String(y.data)))[0]
-    : (cliente.ensaios || [])[0]) || {}
+  const hoje = hojeISO()
+  const futuros = comData.filter((x) => String(x.data).slice(0, 10) >= hoje)
+    .sort((x, y) => String(x.data).localeCompare(String(y.data)))
+  const passados = comData.filter((x) => String(x.data).slice(0, 10) < hoje)
+    .sort((x, y) => String(y.data).localeCompare(String(x.data)))
+  const e = (futuros[0] || passados[0] || (cliente.ensaios || [])[0]) || {}
   const a = cliente.agendamento || {}
   return (
     <>

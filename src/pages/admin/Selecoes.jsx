@@ -6,7 +6,7 @@ import Photo from '../../components/Photo'
 import MensagemModal from '../../components/MensagemModal'
 import useBackToClose from '../../hooks/useBackToClose'
 import { useApp } from '../../context/AppContext'
-import { fetchGalerias, fetchFotos, fetchContaGaleria, marcarContaRecebida, reabrirConta, toggleFavoritaFoto, atualizarGaleria } from '../../lib/galerias'
+import { fetchGalerias, fetchFotos, fetchContasDaGaleria, marcarContaRecebida, reabrirConta, toggleFavoritaFoto, atualizarGaleria } from '../../lib/galerias'
 import { urlPublica } from '../../lib/storage'
 import { FLUXO_GALERIA as FLUXO, statusLabel, statusCor } from '../../data/statusEnsaio'
 import { waLink } from '../../lib/wa'
@@ -157,7 +157,7 @@ function Detalhe({ galeria, onVoltar }) {
 
   const recarregar = useCallback(async () => {
     setCarregando(true)
-    const [fs, ct] = await Promise.all([fetchFotos(galeria.id), fetchContaGaleria(galeria.id, galeria.ensaioId)])
+    const [fs, ct] = await Promise.all([fetchFotos(galeria.id), fetchContasDaGaleria(galeria.id, galeria.ensaioId)])
     setFotos(fs.filter((f) => f.tipo !== 'entrega')) // Seleções lida só com as provas
     setConta(ct)
     setCarregando(false)
@@ -199,18 +199,18 @@ function Detalhe({ galeria, onVoltar }) {
     setSalvandoMsg(false)
   }
 
-  const receber = async () => {
-    if (!conta) return
+  const receber = async (id) => {
+    if (!id) return
     if (!window.confirm('Confirmar o recebimento desse pagamento?')) return
-    await marcarContaRecebida(conta.id)
-    setConta({ ...conta, status: 'pago' })
+    await marcarContaRecebida(id)
+    setConta((cs) => (Array.isArray(cs) ? cs.map((c) => (c.id === id ? { ...c, status: 'pago' } : c)) : cs))
   }
 
-  const desfazerRecebimento = async () => {
-    if (!conta) return
+  const desfazerRecebimento = async (id) => {
+    if (!id) return
     if (!window.confirm('Desfazer o recebimento? A conta volta para "A receber".')) return
-    await reabrirConta(conta.id)
-    setConta({ ...conta, status: 'pendente' })
+    await reabrirConta(id)
+    setConta((cs) => (Array.isArray(cs) ? cs.map((c) => (c.id === id ? { ...c, status: 'pendente' } : c)) : cs))
   }
 
   const exportarLightroom = () => {
@@ -231,7 +231,13 @@ function Detalhe({ galeria, onVoltar }) {
     setExportInfo('txt')
   }
 
-  const venc = conta?.vencimento ? new Date(conta.vencimento + 'T12:00').toLocaleDateString('pt-BR') : null
+  // A cobrança pode estar dividida em DUAS linhas (saldo do ensaio + fotos
+  // extras). Mostrar só a primeira fazia a tela dizer "Pago" enquanto as fotos
+  // extras seguiam em aberto — e o estúdio nunca cobrava.
+  const contas = Array.isArray(conta) ? conta : (conta ? [conta] : [])
+  const totalPendente = contas.filter((c) => c.status !== 'pago').reduce((s, c) => s + c.valor, 0)
+  const totalPago = contas.filter((c) => c.status === 'pago').reduce((s, c) => s + c.valor, 0)
+  const rotuloOrigem = (o) => (o === 'extras' ? 'Fotos extras' : o === 'contrato' ? 'Contrato' : 'Saldo do ensaio')
   const wa = waLink(cliente?.telefone)
 
   const visiveis = vista === 'selecionadas' ? selecionadas : vista === 'indicadas' ? indicadas : fotos
@@ -252,15 +258,31 @@ function Detalhe({ galeria, onVoltar }) {
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
           <p className="flex items-center gap-2 text-xs text-cream-100/50"><Wallet size={13} /> Pagamento da seleção</p>
-          {conta ? (
+          {contas.length > 0 ? (
             <div className="mt-2">
-              <p className="font-serif text-2xl">{formatBRL(conta.valor)}</p>
-              {conta.status === 'pago'
-                ? <p className="mt-1 text-sm text-emerald-300">Pago ✓</p>
-                : <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-300"><CalendarClock size={14} /> A receber{venc ? ` até ${venc}` : ''}</p>}
-              {conta.status !== 'pago'
-                ? <button onClick={receber} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300 ring-1 ring-emerald-400/25 hover:bg-emerald-500/25"><Check size={13} /> Marcar como recebido</button>
-                : <button onClick={desfazerRecebimento} className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-cocoa-800 px-3 py-1.5 text-xs text-cream-100/70 ring-1 ring-cream-100/15 hover:text-amber-300"><Undo2 size={13} /> Desfazer recebimento</button>}
+              <p className="font-serif text-2xl">{formatBRL(totalPendente)}</p>
+              <p className="mt-0.5 text-xs text-cream-100/45">
+                a receber{totalPago > 0 ? ` · ${formatBRL(totalPago)} já pago` : ''}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {contas.map((c) => {
+                  const v = c.vencimento ? new Date(String(c.vencimento).slice(0, 10) + 'T12:00').toLocaleDateString('pt-BR') : null
+                  return (
+                    <li key={c.id} className="rounded-xl bg-cocoa-950 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-cream-100/80">{rotuloOrigem(c.origem)}</span>
+                        <span className="font-medium">{formatBRL(c.valor)}</span>
+                      </div>
+                      {c.status === 'pago'
+                        ? <p className="mt-1 text-xs text-emerald-300">Pago ✓</p>
+                        : <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-300"><CalendarClock size={12} /> A receber{v ? ` até ${v}` : ''}</p>}
+                      {c.status !== 'pago'
+                        ? <button onClick={() => receber(c.id)} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-300 ring-1 ring-emerald-400/25 hover:bg-emerald-500/25"><Check size={12} /> Marcar como recebido</button>
+                        : <button onClick={() => desfazerRecebimento(c.id)} className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-cocoa-800 px-3 py-1.5 text-[11px] text-cream-100/70 ring-1 ring-cream-100/15 hover:text-amber-300"><Undo2 size={12} /> Desfazer</button>}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           ) : (
             <p className="mt-2 text-sm text-cream-100/40">Ainda não há cobrança gerada para esta seleção.</p>

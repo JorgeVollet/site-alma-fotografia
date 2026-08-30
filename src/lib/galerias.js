@@ -106,17 +106,27 @@ export async function excluirGaleria(id) {
 // cliente finalizou direto) OU só ao ENSAIO (o trigger do 09 cria a conta do
 // saldo no ensaio com galeria_id nulo, e finalizar_selecao atualiza essa).
 // Por isso buscamos por galeria_id OU ensaio_id — senão o painel some.
-export async function fetchContaGaleria(galeriaId, ensaioId) {
+export async function fetchContasDaGaleria(galeriaId, ensaioId) {
   let q = supabase.from('contas_receber').select('*').neq('status', 'cancelado')
   if (galeriaId && ensaioId) q = q.or(`galeria_id.eq.${galeriaId},ensaio_id.eq.${ensaioId}`)
-  else if (ensaioId) q = q.eq('ensaio_id', ensaioId) // ensaio sem galeria ainda (conta do saldo já existe)
-  else q = q.eq('galeria_id', galeriaId)
-  // ASC = mesma conta que o finalizar_selecao (09) atualiza (a mais antiga do
-  // ensaio, criada pelo handle_new_ensaio). Se houver 2+ contas, ambos batem.
-  const { data, error } = await q.order('created_at', { ascending: true }).limit(1).maybeSingle()
-  if (error) { console.warn('[contas] fetch falhou:', error.message); return null }
-  if (!data) return null
-  return { id: data.id, valor: Number(data.valor), vencimento: data.vencimento, status: data.status, descricao: data.descricao }
+  else if (ensaioId) q = q.eq('ensaio_id', ensaioId)
+  else if (galeriaId) q = q.eq('galeria_id', galeriaId)
+  else return []
+  const { data, error } = await q.order('created_at', { ascending: true })
+  if (error) { console.warn('[contas] fetch falhou:', error.message); return [] }
+  return (data || []).map((c) => ({
+    id: c.id, valor: Number(c.valor), vencimento: c.vencimento, status: c.status,
+    descricao: c.descricao, origem: c.origem || 'saldo',
+  }))
+}
+
+// Compatibilidade: devolve a PRIMEIRA conta. Use fetchContasDaGaleria quando
+// precisar de todas — desde a migration 19 a cobrança pode estar dividida em
+// duas linhas (saldo do ensaio + fotos extras), e mostrar só uma fazia a tela
+// dizer "Pago" enquanto as fotos extras seguiam em aberto.
+export async function fetchContaGaleria(galeriaId, ensaioId) {
+  const todas = await fetchContasDaGaleria(galeriaId, ensaioId)
+  return todas[0] || null
 }
 
 // Todas as contas a receber (para Financeiro/Visão).

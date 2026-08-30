@@ -423,6 +423,7 @@ function Galeria({ sessao, onSair }) {
             total={total}
             finalizando={finalizando}
             pagamentoOnline={galeria.pagamentoOnline}
+            erro={erroSalvar}
             onPagar={finalizar}
             onFechar={() => !finalizando && setPagModal(false)}
           />
@@ -435,7 +436,7 @@ function Galeria({ sessao, onSair }) {
 /* ---------------- PAGAMENTO (ao enviar a seleção) ---------------- */
 // pagamentoOnline: o estúdio decide, por galeria, se libera cartão/PIX no site.
 // Desligado (padrão), o cliente só confirma a seleção e acerta com o estúdio.
-function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, finalizando, pagamentoOnline, onPagar, onFechar }) {
+function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, finalizando, pagamentoOnline, erro, onPagar, onFechar }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onFechar} className="fixed inset-0 z-[80] flex items-center justify-center bg-cocoa-950/50 p-4">
       <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cream-50 p-7 md:p-8">
@@ -451,6 +452,11 @@ function PagamentoModal({ qtd, inclusas, extras, valorExtra, saldo, total, final
           <div className="mt-1 flex justify-between border-t border-cocoa-800/10 pt-2 text-base"><span className="font-medium text-cocoa-700">Total</span><span className="font-serif text-xl text-clay-600">{formatBRL(total)}</span></div>
         </div>
 
+        {/* o modal cobre a tela (z-80): sem isto, a falha de envio ficava
+            escondida atras dele e o cliente so via o botao parar */}
+        {erro && (
+          <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-xs text-red-700 ring-1 ring-red-500/25">{erro}</p>
+        )}
         <p className="mt-5 text-sm font-medium text-cocoa-700">
           {pagamentoOnline ? 'Como você prefere pagar?' : 'Tudo certo para enviar?'}
         </p>

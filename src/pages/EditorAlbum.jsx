@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -6,8 +6,8 @@ import {
   Type, Heading, Square, Circle, Minus, Images, Palette, LayoutGrid,
 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { CLIENTES, getGaleriaData } from '../data/crm'
-import { GALERIA_CLIENTE_DEMO } from '../data/galleries'
+import { fetchFotos } from '../lib/galerias'
+import { urlGaleria } from '../lib/storage'
 import {
   FUNDOS_ALBUM, TEMPLATES_COMPLETOS, aplicarTemplate, novoSpread,
   elFoto, elTexto, elTitulo, elForma, fonteCss,
@@ -16,12 +16,15 @@ import CanvasElement from './admin/diagramador/CanvasElement'
 import PainelPropriedadesEl from './admin/diagramador/PainelPropriedadesEl'
 import Logo from '../components/Logo'
 
-function fotosDoCliente(clienteId) {
-  const c = CLIENTES.find((x) => x.id === clienteId)
-  if (!c || !c.galeriaId) return []
-  if (c.galeriaId === 'demo') return GALERIA_CLIENTE_DEMO.fotos
-  const g = getGaleriaData(c.galeriaId)
-  return g ? g.fotos : []
+// ANTES lia CLIENTES de data/crm.js, que foi ZERADO na migração para o Supabase:
+// o editor abria em tela cheia sem NENHUMA foto disponível. Agora busca as fotos
+// da galeria real gravada no álbum.
+async function fotosDaGaleria(galeriaId) {
+  if (!galeriaId) return []
+  const fotos = await fetchFotos(galeriaId)
+  return fotos
+    .filter((f) => f.selecionada || f.tipo === 'entrega')
+    .map((f) => ({ id: f.id, src: urlGaleria(f.tipo, f.previewPath), alt: f.nomeArquivo || '' }))
 }
 
 // Página full-screen do editor de álbum (rota /diagramador/:id)
@@ -40,7 +43,13 @@ export default function EditorAlbum() {
   const [painelFotos, setPainelFotos] = useState(true)
   const canvasRef = useRef(null)
 
-  const fotos = useMemo(() => fotosDoCliente(album ? album.clienteId : ''), [album])
+  // carregamento assíncrono das fotos da galeria do álbum
+  const [fotos, setFotos] = useState([])
+  useEffect(() => {
+    let vivo = true
+    fotosDaGaleria(album ? album.galeriaId : null).then((fs) => { if (vivo) setFotos(fs) })
+    return () => { vivo = false }
+  }, [album])
 
   if (!album) {
     return (
