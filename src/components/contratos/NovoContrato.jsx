@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { X, LayoutTemplate, FilePlus, FileUp, Plus, Trash2, Check, MessageCircle, Copy, Eye } from 'lucide-react'
 import { formatBRL } from '../Money'
@@ -17,6 +17,20 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
   const [modo, setModo] = useState(modoInicial) // template | zero | pdf
   const [cliente, setCliente] = useState(clientePre || '')
   const [ensaioId, setEnsaioId] = useState(ensaioPre?.id || '')
+
+  // Contrato SEM ensaio vinculado cobra o mesmo dinheiro duas vezes: a checagem
+  // anti-duplicidade pergunta "esse ensaio já tem cobrança?" e, sem ensaio, não
+  // há o que perguntar — então cria uma conta; depois o ensaio cria outra.
+  // Por isso o vínculo deixou de ser opcional quando existe ensaio: se houver
+  // um só, ele já vem escolhido.
+  useEffect(() => {
+    if (ensaioId || ensaioPre) return
+    const lista = (clienteObj && clienteObj.ensaios) || []
+    if (lista.length === 1) {
+      setEnsaioId(lista[0].id)
+      if (lista[0].valor) setValor(String(lista[0].valor))
+    }
+  }, [clienteObj, ensaioId, ensaioPre])
   const [valor, setValor] = useState(ensaioPre?.valor ? String(ensaioPre.valor) : '')
   const [ensaio, setEnsaio] = useState(ensaioPre?.tipo || ensaioPre?.titulo || '')
   const [modeloId, setModeloId] = useState('')
@@ -98,7 +112,7 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
           <p className="mt-3 rounded-xl bg-cocoa-950 p-3 text-xs text-cream-100/50">Vinculado ao ensaio <strong className="text-cream-100/80">{ensaioPre.titulo || ensaioPre.tipo || 'selecionado'}</strong>. O valor e o objeto vêm dele — a cobrança fica no ensaio (o contrato não gera outra conta a receber).</p>
         ) : (clienteObj && Array.isArray(clienteObj.ensaios) && clienteObj.ensaios.length > 0 && (
           <label className="mt-3 block">
-            <span className="text-sm text-cream-100/80">Vincular a um ensaio <span className="text-cream-100/40">(opcional · puxa o valor)</span></span>
+            <span className="text-sm text-cream-100/80">Vincular a um ensaio <span className="text-terracotta-300/80">(recomendado)</span></span>
             <select className={inp} value={ensaioId} onChange={(e) => {
               const id = e.target.value
               setEnsaioId(id)
@@ -108,10 +122,15 @@ export default function NovoContrato({ onClose, onCriar, onCriado, clientePre, e
                 if (!ensaio) setEnsaio(en.tipo || en.titulo || '')
               }
             }}>
-              <option value="">Sem vínculo</option>
+              <option value="">Sem vínculo (não recomendado)</option>
               {clienteObj.ensaios.map((en) => <option key={en.id} value={en.id}>{en.titulo}{en.valor ? ` — ${formatBRL(en.valor)}` : ''}</option>)}
             </select>
             <span className="mt-1 block text-xs text-cream-100/40">Ao escolher, o valor e o objeto vêm do ensaio. A cobrança fica no ensaio — o contrato não gera outra conta a receber.</span>
+            {!ensaioId && (
+              <span className="mt-2 block rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-300 ring-1 ring-amber-400/25">
+                Sem vínculo, este contrato gera uma cobrança própria — e quando o ensaio for fechado nascerá outra, cobrando o cliente duas vezes. Escolha o ensaio acima.
+              </span>
+            )}
           </label>
         ))}
 

@@ -160,6 +160,24 @@ function Galeria({ sessao, onSair }) {
   // modo 'alta'  = o arquivo como o estúdio entregou (impressão, arquivo pessoal)
   // modo 'redes' = cópia de 2048px em sRGB gerada AQUI, no navegador do cliente.
   // O estúdio exporta e sobe UMA vez só; quem faz a versão de publicar é o site.
+  // Pergunta o tamanho ao servidor (HEAD) sem baixar nada. Na versao "redes" a
+  // foto encolhe muito, entao estimamos por cima com um fator conservador.
+  const estimarTamanho = async (modo) => {
+    try {
+      const amostra = entregas.slice(0, 5)
+      let soma = 0, contadas = 0
+      for (const f of amostra) {
+        const r = await fetch(f.fullUrl, { method: 'HEAD' })
+        const len = Number(r.headers.get('content-length'))
+        if (len > 0) { soma += len; contadas++ }
+      }
+      if (!contadas) return null
+      const medio = soma / contadas
+      const total = medio * entregas.length * (modo === 'redes' ? 0.25 : 1)
+      return Math.max(1, Math.round(total / 1048576))
+    } catch { return null }
+  }
+
   const baixarBlob = (blob, nome) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href = url; a.download = nome; a.click()
@@ -186,8 +204,20 @@ function Galeria({ sessao, onSair }) {
   }
 
   // Baixa TODAS as finais num único .zip (JSZip, no navegador).
+  // Avisa o tamanho ANTES de comecar. O .zip e montado inteiro na memoria do
+  // aparelho: em galeria grande no celular isso trava. Melhor a pessoa saber e
+  // decidir (ou baixar uma a uma) do que o navegador morrer no meio.
   const baixarTodas = async (modo = 'alta') => {
     if (!entregas.length) return
+    const mb = await estimarTamanho(modo)
+    const partes = mb
+      ? ['Vamos preparar um .zip de aproximadamente ' + mb + ' MB com ' + entregas.length + ' fotos.']
+      : ['Vamos preparar um .zip com ' + entregas.length + ' fotos.']
+    if (mb && mb > 250) {
+      partes.push('ATENÇÃO: em celular um arquivo desse tamanho pode travar o navegador. No computador costuma ir tranquilo — ou baixe as fotos uma a uma.')
+    }
+    partes.push('Quer continuar?')
+    if (!window.confirm(partes.join(String.fromCharCode(10, 10)))) return
     setBaixandoTodas(modo)
     try {
       const zip = new JSZip()

@@ -11,7 +11,8 @@ import { FUNIL_ETAPAS } from '../../data/crm'
 import { statusLabel, statusCor } from '../../data/statusEnsaio'
 import { useApp } from '../../context/AppContext'
 import { usePacotes, useProdutos } from '../../lib/catalogo'
-import { fetchContaGaleria } from '../../lib/galerias'
+import { fetchContaGaleria, fetchContasDaGaleria } from '../../lib/galerias'
+import { fecharNegocio } from '../../lib/ensaios'
 import NovoContrato, { ModalEnviar } from '../../components/contratos/NovoContrato'
 import { hojeISO } from '../../lib/datas'
 
@@ -138,12 +139,39 @@ function BlocoEnsaios({ ensaios, onAbrir }) {
 
 /* ---- FICHA INTEGRADA DO ENSAIO (pop-up: de onde vem cada coisa) ---- */
 function EnsaioModal({ ensaio, cliente, onClose }) {
-  const { galerias, contratos, criarContrato, enviarContrato } = useApp()
+  const { galerias, contratos, criarContrato, enviarContrato, recarregarCRM } = useApp()
   const galeria = (galerias || []).find((g) => g.ensaioId === ensaio.id) || null
   const contrato = (contratos || []).find((ct) => ct.ensaioId === ensaio.id && ct.status !== 'cancelado') || null
   const [conta, setConta] = useState(undefined) // undefined=carregando · null=nenhuma
   const [novoContrato, setNovoContrato] = useState(false)
   const [enviarCt, setEnviarCt] = useState(null)
+  const [fechando, setFechando] = useState(false)
+  const [form, setForm] = useState({
+    valor: ensaio.valor || '',
+    sinal: ensaio.sinal ?? '',
+    fotosInclusas: ensaio.fotosInclusas ?? '',
+    fotoExtra: ensaio.fotoExtra ?? '',
+  })
+  const [msgFechar, setMsgFechar] = useState('')
+
+  // FECHAR NEGÓCIO: digita o valor combinado UMA vez e o banco gera o resto —
+  // valor do ensaio, conta do sinal, conta do saldo e o que a galeria herda.
+  const fechar = async () => {
+    if (fechando) return
+    setFechando(true)
+    setMsgFechar('')
+    const r = await fecharNegocio({
+      ensaioId: ensaio.id,
+      valor: form.valor, sinal: form.sinal,
+      fotosInclusas: form.fotosInclusas, fotoExtra: form.fotoExtra,
+    })
+    setFechando(false)
+    if (!r.ok) { setMsgFechar(r.erro || 'Não foi possível fechar agora.'); return }
+    setMsgFechar('Pronto! Sinal ' + formatBRL(r.sinal_a_receber) + ' e saldo ' + formatBRL(r.saldo_a_receber) + ' entraram em "A receber".')
+    const cs = await fetchContasDaGaleria(galeria ? galeria.id : null, ensaio.id)
+    setConta(cs[0] || null)
+    if (recarregarCRM) recarregarCRM()
+  }
   useEffect(() => {
     let v = true
     fetchContaGaleria(galeria ? galeria.id : null, ensaio.id).then((c) => { if (v) setConta(c) })
@@ -202,6 +230,48 @@ function EnsaioModal({ ensaio, cliente, onClose }) {
                 valor={contaTxt} />
             </div>
             <p className="mt-2 text-[11px] text-cream-100/40">Tudo ligado a este ensaio aparece aqui — galeria, contrato e o valor a receber.</p>
+          </div>
+
+          {/* FECHAR NEGÓCIO */}
+          <div className="rounded-2xl bg-cocoa-950 p-4 ring-1 ring-terracotta-400/20">
+            <p className="flex items-center gap-2 text-sm font-medium text-cream-100/90">
+              <Wallet size={15} className="text-terracotta-400" /> Fechar negócio
+            </p>
+            <p className="mt-1 text-[11px] text-cream-100/45">
+              Combinou o valor no WhatsApp? Digite aqui uma vez — o sistema cria a cobrança do sinal e a do saldo, e a galeria já nasce com os números certos.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="block">
+                <span className="text-[11px] text-cream-100/45">Valor combinado (R$)</span>
+                <input type="number" value={form.valor} onChange={(e) => setForm((f) => ({ ...f, valor: e.target.value }))}
+                  placeholder="1200" className="mt-0.5 w-full rounded-lg border border-cream-100/10 bg-cocoa-900 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-cream-100/45">Sinal (R$)</span>
+                <input type="number" value={form.sinal} onChange={(e) => setForm((f) => ({ ...f, sinal: e.target.value }))}
+                  placeholder="100" className="mt-0.5 w-full rounded-lg border border-cream-100/10 bg-cocoa-900 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-cream-100/45">Fotos inclusas</span>
+                <input type="number" value={form.fotosInclusas} onChange={(e) => setForm((f) => ({ ...f, fotosInclusas: e.target.value }))}
+                  placeholder="10" className="mt-0.5 w-full rounded-lg border border-cream-100/10 bg-cocoa-900 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] text-cream-100/45">Foto extra (R$)</span>
+                <input type="number" value={form.fotoExtra} onChange={(e) => setForm((f) => ({ ...f, fotoExtra: e.target.value }))}
+                  placeholder="30" className="mt-0.5 w-full rounded-lg border border-cream-100/10 bg-cocoa-900 px-3 py-1.5 text-sm outline-none focus:border-terracotta-400" />
+              </label>
+            </div>
+            {Number(form.valor) > 0 && (
+              <p className="mt-2 text-[11px] text-cream-100/55">
+                Sinal {formatBRL(Number(form.sinal) || 0)} + saldo {formatBRL(Math.max(0, (Number(form.valor) || 0) - (Number(form.sinal) || 0)))} = {formatBRL(Number(form.valor) || 0)}
+              </p>
+            )}
+            <button onClick={fechar} disabled={fechando || !(Number(form.valor) > 0)}
+              className="btn-light mt-3 w-full !py-2.5 text-xs disabled:opacity-40">
+              {fechando ? <><Loader2 size={14} className="animate-spin" /> Gerando cobranças…</> : <><Check size={14} /> Fechar e gerar cobranças</>}
+            </button>
+            {msgFechar && <p className="mt-2 text-[11px] text-clay-300">{msgFechar}</p>}
           </div>
 
           {/* Ações — criar/enviar contrato a partir do ensaio (mesmo poder da aba Contratos) */}

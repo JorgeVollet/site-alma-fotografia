@@ -83,3 +83,22 @@ export async function removerEnsaio(id) {
   }
   return true
 }
+
+// FECHAR NEGÓCIO (Bloco 21) — o valor combinado é digitado UMA vez e o banco
+// gera o resto: valor do ensaio, conta do SINAL, conta do SALDO e os parâmetros
+// que a galeria herda depois. Substitui o montador de orçamento, que era um
+// beco sem saída (ficava num jsonb e não virava cobrança nenhuma).
+export async function fecharNegocio({ ensaioId, valor, sinal = 0, fotosInclusas = null, fotoExtra = null }) {
+  const { data, error } = await supabase.rpc('fechar_negocio', {
+    p_ensaio_id: ensaioId,
+    p_valor: Number(valor) || 0,
+    p_sinal: Number(sinal) || 0,
+    p_fotos_inclusas: fotosInclusas != null && fotosInclusas !== '' ? Number(fotosInclusas) : null,
+    p_foto_extra: fotoExtra != null && fotoExtra !== '' ? Number(fotoExtra) : null,
+  })
+  if (error) {
+    console.warn('[ensaios] fechar negócio falhou:', error.message)
+    return { ok: false, erro: error.message }
+  }
+  return data || { ok: false }
+}
