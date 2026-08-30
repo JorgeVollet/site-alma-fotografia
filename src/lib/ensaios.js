@@ -16,6 +16,8 @@ export function mapEnsaio(row) {
     status: row.status || 'agendado',
     observacoes: row.observacoes || '',
     fotoExtra: row.foto_extra != null ? Number(row.foto_extra) : null,
+    sinal: row.sinal != null ? Number(row.sinal) : null,
+    fotosInclusas: row.fotos_inclusas != null ? Number(row.fotos_inclusas) : null,
     origem: row.origem || 'manual', // 'site' = veio de uma reserva do site
   }
 }
@@ -33,6 +35,8 @@ function paraColunas(campos) {
   if ('status' in campos) col.status = campos.status
   if ('observacoes' in campos) col.observacoes = campos.observacoes || null
   if ('fotoExtra' in campos) col.foto_extra = campos.fotoExtra || null
+  if ('sinal' in campos) col.sinal = campos.sinal
+  if ('fotosInclusas' in campos) col.fotos_inclusas = campos.fotosInclusas
   return col
 }
 

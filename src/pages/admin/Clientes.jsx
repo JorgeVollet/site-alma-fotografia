@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Phone, Calendar, Camera, ArrowLeft, Image as ImageIcon, DollarSign, Plus, Pencil, X, Check, Search, MessageCircle, Trash2 } from 'lucide-react'
 import { formatBRL } from '../../components/Money'
+import { fecharNegocio } from '../../lib/ensaios'
 import { FUNIL_ETAPAS } from '../../data/crm'
 import { SERVICOS } from '../../data/studio'
 import { usePacotes } from '../../lib/catalogo'
@@ -96,7 +97,7 @@ export default function Clientes() {
 }
 
 function Ficha({ cliente, onVoltar, onEditar, selecoes }) {
-  const { adicionarEnsaioCliente, editarEnsaioCliente, excluirEnsaioCliente } = useApp()
+  const { adicionarEnsaioCliente, editarEnsaioCliente, excluirEnsaioCliente, recarregarCRM } = useApp()
   const [editorEnsaio, setEditorEnsaio] = useState(null) // {novo:true} | ensaio | null
   const gasto = cliente.ensaios.reduce((s, e) => s + (e.valor || 0), 0)
   const wa = waLink(cliente.telefone) || ''
@@ -174,8 +175,27 @@ function Ficha({ cliente, onVoltar, onEditar, selecoes }) {
             ensaio={editorEnsaio.novo ? null : editorEnsaio}
             onClose={() => setEditorEnsaio(null)}
             onSalvar={async (campos) => {
-              if (editorEnsaio.novo) await adicionarEnsaioCliente(cliente.id, campos)
-              else await editarEnsaioCliente(editorEnsaio.id, campos)
+              let alvo = editorEnsaio.novo ? null : editorEnsaio.id
+              if (editorEnsaio.novo) {
+                const novo = await adicionarEnsaioCliente(cliente.id, campos)
+                alvo = novo && novo.id
+              } else {
+                await editarEnsaioCliente(editorEnsaio.id, campos)
+              }
+              // Ensaio FECHADO com valor: gera a cobranca do sinal e a do saldo.
+              // Sem isto, o sinal era descontado do saldo mas nunca virava
+              // receita — o ensaio de 1200 com sinal de 100 aparecia como 1100.
+              const fechado = campos.status && !['solicitado', 'orcamento'].includes(campos.status)
+              if (alvo && fechado && Number(campos.valor) > 0) {
+                await fecharNegocio({
+                  ensaioId: alvo,
+                  valor: campos.valor,
+                  sinal: campos.sinal || 0,
+                  fotosInclusas: campos.fotosInclusas,
+                  fotoExtra: campos.fotoExtra,
+                })
+                if (recarregarCRM) recarregarCRM()
+              }
               setEditorEnsaio(null)
             }}
           />
@@ -194,6 +214,11 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
   const [data, setData] = useState(ensaio ? ensaio.data || '' : '')
   const [status, setStatus] = useState(ensaio ? ensaio.status || 'agendado' : 'orcamento')
   const [observacoes, setObservacoes] = useState(ensaio ? ensaio.observacoes || '' : '')
+  // O que foi COMBINADO fica no ensaio: e daqui que saem a cobranca do sinal e
+  // a do saldo, e e daqui que a galeria herda os numeros depois.
+  const [sinal, setSinal] = useState(ensaio && ensaio.sinal != null ? ensaio.sinal : '')
+  const [fotosInclusas, setFotosInclusas] = useState(ensaio && ensaio.fotosInclusas != null ? ensaio.fotosInclusas : '')
+  const [fotoExtra, setFotoExtra] = useState(ensaio && ensaio.fotoExtra != null ? ensaio.fotoExtra : '')
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
 
   // Ao escolher um tipo/pacote, sugere título e valor (se ainda vazios).
@@ -206,6 +231,9 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
     setPacote(slug)
     const p = PACOTES.find((x) => x.id === slug)
     if (p && !valor) setValor(p.preco)
+    if (p && sinal === '' && p.reserva) setSinal(p.reserva)
+    if (p && fotosInclusas === '' && p.fotosInclusas) setFotosInclusas(p.fotosInclusas)
+    if (p && fotoExtra === '' && p.fotoExtra) setFotoExtra(p.fotoExtra)
   }
 
   const valido = titulo.trim() || tipo || pacote
@@ -236,6 +264,17 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
             <label className="block"><span className="text-sm text-cream-100/80">Valor (R$)</span><input type="number" className={inp} value={valor} onChange={(e) => setValor(e.target.value)} placeholder="890" /></label>
             <label className="block"><span className="text-sm text-cream-100/80">Data</span><input type="date" className={inp} value={data || ''} onChange={(e) => setData(e.target.value)} /></label>
           </div>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><span className="text-sm text-cream-100/80">Sinal / entrada</span><input type="number" className={inp} value={sinal} onChange={(e) => setSinal(e.target.value)} placeholder="100" /></label>
+            <label className="block"><span className="text-sm text-cream-100/80">Fotos inclusas</span><input type="number" className={inp} value={fotosInclusas} onChange={(e) => setFotosInclusas(e.target.value)} placeholder="10" /></label>
+            <label className="block"><span className="text-sm text-cream-100/80">Foto extra (R$)</span><input type="number" className={inp} value={fotoExtra} onChange={(e) => setFotoExtra(e.target.value)} placeholder="30" /></label>
+          </div>
+          {Number(valor) > 0 && (
+            <p className="rounded-xl bg-cocoa-950 p-3 text-xs text-cream-100/60">
+              Entrada de <strong className="text-cream-100/85">{formatBRL(Number(sinal) || 0)}</strong> + saldo de <strong className="text-cream-100/85">{formatBRL(Math.max(0, (Number(valor) || 0) - (Number(sinal) || 0)))}</strong>.
+              {' '}Ao salvar como <strong className="text-cream-100/85">Agendado</strong>, as duas cobranças entram em “A receber”.
+            </p>
+          )}
           <label className="block"><span className="text-sm text-cream-100/80">Situação</span>
             <select className={inp} value={status} onChange={(e) => setStatus(e.target.value)}>
               {STATUS_ENSAIO.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
@@ -244,7 +283,7 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
           </label>
           <label className="block"><span className="text-sm text-cream-100/80">Observações</span><textarea className={inp} rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Detalhes do ensaio..." /></label>
         </div>
-        <button onClick={() => valido && onSalvar({ titulo: titulo.trim(), tipo, pacote, valor: Number(valor) || 0, data: data || null, status, observacoes })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {ensaio ? 'Salvar ensaio' : 'Adicionar ensaio'}</button>
+        <button onClick={() => valido && onSalvar({ titulo: titulo.trim(), tipo, pacote, valor: Number(valor) || 0, data: data || null, status, observacoes, sinal: sinal === '' ? null : Number(sinal), fotosInclusas: fotosInclusas === '' ? null : Number(fotosInclusas), fotoExtra: fotoExtra === '' ? null : Number(fotoExtra) })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {ensaio ? 'Salvar ensaio' : 'Adicionar ensaio'}</button>
       </motion.div>
     </motion.div>
   )
