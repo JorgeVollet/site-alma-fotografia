@@ -1,392 +1,428 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Calendar, ChevronLeft, ChevronRight, Ban, Clock, Plus, Trash2, Check, X, CalendarCheck } from 'lucide-react'
-import { formatBRL } from '../../components/Money'
+// AGENDA (Bloco 22) — uma agenda só, para tudo que tem data.
+//
+// A anterior lia apenas `agendamentos` (as reservas do site). Como o site
+// deixou de marcar horário, ela vivia vazia — o estúdio marcava o ensaio na
+// ficha do cliente e o calendário não sabia de nada.
+//
+// Agora junta quatro fontes num calendário estilo Google Calendar:
+//   • ENSAIOS marcados (mês/semana/dia, com a duração real)
+//   • COMPROMISSOS livres criados aqui (reunião, entrega, bloqueio, pessoal)
+//   • ANIVERSÁRIOS dos clientes (oportunidade de venda que o Maurício valoriza)
+//   • CONTAS a vencer
+//
+// Arrastar move a data DE VERDADE (grava no banco). Clicar abre o que aquele
+// item controla — é a costura: o calendário não é uma tela morta de consulta.
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin from '@fullcalendar/daygrid'
+import timeGridPlugin from '@fullcalendar/timegrid'
+import listPlugin from '@fullcalendar/list'
+import interactionPlugin from '@fullcalendar/interaction'
+import ptBr from '@fullcalendar/core/locales/pt-br'
+import { motion, AnimatePresence } from 'framer-motion'
+import { X, Trash2, Check, Plus, Loader2 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
-import { waLink } from '../../lib/wa'
-import { hojeISO } from '../../lib/datas'
+import { formatBRL } from '../../components/Money'
+import { fetchEventos, criarEvento, atualizarEvento, excluirEvento, CORES_EVENTO, corDoTipo } from '../../lib/eventos'
+import { fetchContasReceber } from '../../lib/galerias'
+import { atualizarEnsaio } from '../../lib/ensaios'
 
-const DIAS_SEMANA = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
-const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const TIPOS = ['reuniao', 'entrega', 'bloqueio', 'pessoal', 'evento']
+
+// junta 'YYYY-MM-DD' + 'HH:MM' num Date local (sem susto de fuso)
+function juntar(data, hora) {
+  const d = String(data).slice(0, 10)
+  const h = hora && /^\d{2}:\d{2}/.test(hora) ? hora.slice(0, 5) : '09:00'
+  return new Date(d + 'T' + h + ':00')
+}
+const paraISO = (d) => new Date(d).toISOString()
+const dp = (n) => String(n).padStart(2, '0')
 
 export default function Agenda() {
-  const { agendamentos, clientes, diasBloqueados, horariosBloqueados, toggleDiaBloqueado, toggleHorarioBloqueado, horariosDoDia, adicionarHorario, editarHorario, removerHorario, bufferAntes, bufferDepois, setBuffer, confirmarAgendamento, cancelarAgendamento } = useApp()
-  const [ref, setRef] = useState(() => new Date())
-  const [diaSel, setDiaSel] = useState(null)
-  const [verHistorico, setVerHistorico] = useState(false)
-  const [confirmando, setConfirmando] = useState(null) // reserva a confirmar (abre modal de duração)
-  const [detalhe, setDetalhe] = useState(null)         // reserva clicada (ver info)
+  const { clientes, recarregarCRM } = useApp()
+  const calRef = useRef(null)
+  const [eventos, setEventos] = useState([])
+  const [contas, setContas] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [editor, setEditor] = useState(null)   // compromisso em edição, ou {novo:true}
+  const [detalhe, setDetalhe] = useState(null) // ensaio / aniversário / conta clicado
+  const [mostrar, setMostrar] = useState({ ensaio: true, compromisso: true, aniversario: true, conta: true })
 
-  const ano = ref.getFullYear()
-  const mes = ref.getMonth()
-  const primeiroDia = new Date(ano, mes, 1).getDay()
-  const diasNoMes = new Date(ano, mes + 1, 0).getDate()
-  const hojeStr = hojeISO()
+  const recarregar = useCallback(async () => {
+    setCarregando(true)
+    const [evs, cts] = await Promise.all([fetchEventos(), fetchContasReceber()])
+    setEventos(evs)
+    setContas(cts)
+    setCarregando(false)
+  }, [])
+  useEffect(() => { recarregar() }, [recarregar])
 
-  // reservas ativas (aguardando confirmação e data não passada) x resolvidas
-  const reservasAtivas = agendamentos.filter((a) => a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr))
-  const reservasResolvidas = agendamentos.filter((a) => !(a.status === 'a-confirmar' && (!a.dia || a.dia >= hojeStr)))
+  // ── as quatro fontes viram eventos do calendário ──
+  const items = useMemo(() => {
+    const out = []
 
-  const fmt = (d) => ano + '-' + String(mes + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0')
+    if (mostrar.ensaio) {
+      for (const c of clientes) {
+        for (const e of c.ensaios || []) {
+          if (!e.data || ['solicitado', 'orcamento', 'cancelado'].includes(e.status)) continue
+          const ini = juntar(e.data, e.hora)
+          const dur = Number(e.duracaoMin) > 0 ? Number(e.duracaoMin) : 120
+          out.push({
+            id: 'ensaio:' + e.id,
+            title: c.nome + ' · ' + (e.titulo || 'Ensaio'),
+            start: ini,
+            end: new Date(ini.getTime() + dur * 60000),
+            allDay: !e.hora,
+            backgroundColor: e.cor || corDoTipo('ensaio'),
+            borderColor: e.cor || corDoTipo('ensaio'),
+            extendedProps: { fonte: 'ensaio', ensaio: e, cliente: c },
+          })
+        }
+      }
+    }
 
-  // O site não marca mais horário: quem preenche a agenda agora são os ENSAIOS
-  // criados pelo estúdio. Antes o calendário só lia `agendamentos` e por isso
-  // vivia vazio, mesmo com ensaios marcados na ficha do cliente.
-  const ensaiosAgendados = clientes.flatMap((c) =>
-    (c.ensaios || [])
-      .filter((e) => e.data && !['solicitado', 'orcamento', 'cancelado'].includes(e.status))
-      .map((e) => ({ ...e, clienteNome: c.nome, clienteId: c.id }))
-  )
-  const ensaiosDoDia = (ds) => ensaiosAgendados.filter((e) => String(e.data).slice(0, 10) === ds)
-  const agsDoDia = (ds) => agendamentos.filter((a) => a.dia === ds)
-  const temEventoNoDia = (ds) => agsDoDia(ds).length > 0 || ensaiosDoDia(ds).length > 0
+    if (mostrar.compromisso) {
+      for (const ev of eventos) {
+        out.push({
+          id: 'evento:' + ev.id,
+          title: ev.titulo,
+          start: ev.inicio,
+          end: ev.fim || undefined,
+          allDay: ev.diaInteiro,
+          backgroundColor: ev.cor,
+          borderColor: ev.cor,
+          extendedProps: { fonte: 'evento', evento: ev },
+        })
+      }
+    }
 
-  const celulas = []
-  for (let i = 0; i < primeiroDia; i++) celulas.push(null)
-  for (let d = 1; d <= diasNoMes; d++) celulas.push(d)
+    // aniversários deste ano e do próximo (o calendário navega adiante)
+    if (mostrar.aniversario) {
+      const anoBase = new Date().getFullYear()
+      for (const c of clientes) {
+        if (!c.dataNascimento) continue
+        const n = new Date(String(c.dataNascimento).slice(0, 10) + 'T12:00')
+        if (Number.isNaN(n.getTime())) continue
+        for (const ano of [anoBase, anoBase + 1]) {
+          out.push({
+            id: 'aniv:' + c.id + ':' + ano,
+            title: '🎂 ' + c.nome,
+            start: new Date(ano, n.getMonth(), n.getDate()),
+            allDay: true,
+            backgroundColor: corDoTipo('aniversario'),
+            borderColor: corDoTipo('aniversario'),
+            editable: false,           // aniversário não se arrasta
+            extendedProps: { fonte: 'aniversario', cliente: c },
+          })
+        }
+      }
+    }
+
+    if (mostrar.conta) {
+      for (const ct of contas) {
+        if (!ct.vencimento || ct.status === 'pago') continue
+        out.push({
+          id: 'conta:' + ct.id,
+          title: '💰 ' + formatBRL(ct.valor) + ' · ' + (ct.descricao || 'a receber'),
+          start: new Date(String(ct.vencimento).slice(0, 10) + 'T12:00'),
+          allDay: true,
+          backgroundColor: corDoTipo('conta'),
+          borderColor: corDoTipo('conta'),
+          editable: false,
+          extendedProps: { fonte: 'conta', conta: ct },
+        })
+      }
+    }
+
+    return out
+  }, [clientes, eventos, contas, mostrar])
+
+  // ── arrastar/redimensionar: grava a data nova na FONTE certa ──
+  const aoMover = async (info) => {
+    const { fonte, ensaio, evento } = info.event.extendedProps
+    const d = info.event.start
+    if (fonte === 'ensaio') {
+      const data = d.getFullYear() + '-' + dp(d.getMonth() + 1) + '-' + dp(d.getDate())
+      const hora = info.event.allDay ? ensaio.hora : dp(d.getHours()) + ':' + dp(d.getMinutes())
+      let duracaoMin = ensaio.duracaoMin
+      if (info.event.end && !info.event.allDay) {
+        duracaoMin = Math.max(15, Math.round((info.event.end - d) / 60000))
+      }
+      const r = await atualizarEnsaio(ensaio.id, { data, hora: hora || null, duracaoMin })
+      if (!r) { info.revert(); return }
+      if (recarregarCRM) recarregarCRM()
+    } else if (fonte === 'evento') {
+      const r = await atualizarEvento(evento.id, {
+        inicio: paraISO(d),
+        fim: info.event.end ? paraISO(info.event.end) : null,
+        diaInteiro: info.event.allDay,
+      })
+      if (!r || r.erro) { info.revert(); return }
+      await recarregar()
+    } else {
+      info.revert()   // aniversário e conta não se movem por aqui
+    }
+  }
+
+  const aoClicar = (info) => {
+    const p = info.event.extendedProps
+    if (p.fonte === 'evento') setEditor(p.evento)
+    else setDetalhe({ ...p, titulo: info.event.title, inicio: info.event.start })
+  }
 
   return (
     <div>
-      <h1 className="font-serif text-3xl">Agendamentos & disponibilidade</h1>
-      <p className="mt-1 text-sm text-cream-100/60">Os ensaios marcados na ficha do cliente aparecem aqui. Clique num dia para ver o que está agendado.</p>
-
-      {/* BUFFER — bloqueio automático antes/depois de cada ensaio */}
-      <div className="mt-5 rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
-        <h3 className="font-serif text-lg">Intervalo entre ensaios</h3>
-        <p className="mt-1 max-w-2xl text-sm text-cream-100/55">
-          Sua margem de descanso entre um ensaio e outro. Serve de referência ao montar o dia — o site não marca mais horário sozinho, então nada é bloqueado automaticamente por aqui.
-        </p>
-        <div className="mt-4 flex flex-wrap items-end gap-6">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs uppercase tracking-wide text-cream-100/50">Bloquear antes</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="number" min="0" max="6" step="0.5"
-                value={bufferAntes}
-                onChange={(e) => setBuffer(e.target.value, bufferDepois)}
-                className="w-20 rounded-lg bg-cocoa-950 px-3 py-2 text-cream-100 ring-1 ring-cream-100/15 focus:ring-clay-400 focus:outline-none"
-              />
-              <span className="text-sm text-cream-100/60">horas</span>
-            </div>
-          </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs uppercase tracking-wide text-cream-100/50">Bloquear depois</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="number" min="0" max="6" step="0.5"
-                value={bufferDepois}
-                onChange={(e) => setBuffer(bufferAntes, e.target.value)}
-                className="w-20 rounded-lg bg-cocoa-950 px-3 py-2 text-cream-100 ring-1 ring-cream-100/15 focus:ring-clay-400 focus:outline-none"
-              />
-              <span className="text-sm text-cream-100/60">horas</span>
-            </div>
-          </label>
-          <p className="text-sm text-clay-300">
-            Ex: reserva às 09:00 → bloqueia {bufferAntes}h antes e {bufferDepois}h depois.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl">Agenda</h1>
+          <p className="mt-1 text-sm text-cream-100/60">
+            Tudo do estúdio num lugar só. Arraste para remarcar, clique para abrir.
           </p>
         </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        {/* Calendário */}
-        <div className="rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-serif text-xl">{MESES[mes]} {ano}</h3>
-            <div className="flex gap-1">
-              <button onClick={() => setRef(new Date(ano, mes - 1, 1))} className="grid h-8 w-8 place-items-center rounded-lg bg-cocoa-950 text-cream-100/70 hover:text-cream-100"><ChevronLeft size={16} /></button>
-              <button onClick={() => setRef(new Date(ano, mes + 1, 1))} className="grid h-8 w-8 place-items-center rounded-lg bg-cocoa-950 text-cream-100/70 hover:text-cream-100"><ChevronRight size={16} /></button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {DIAS_SEMANA.map((d, i) => <div key={i} className="py-1 text-xs text-cream-100/40">{d}</div>)}
-            {celulas.map((d, i) => {
-              if (!d) return <div key={i} />
-              const ds = fmt(d)
-              const bloqueado = diasBloqueados.includes(ds)
-              const temAg = temEventoNoDia(ds)
-              const ehHoje = ds === hojeStr
-              const dom = new Date(ano, mes, d).getDay() === 0
-              return (
-                <button
-                  key={i}
-                  onClick={() => setDiaSel(ds)}
-                  className={'relative aspect-square rounded-lg text-sm transition ' +
-                    (diaSel === ds ? 'ring-2 ring-terracotta-400 ' : '') +
-                    (bloqueado ? 'bg-cocoa-950 text-cream-100/25 line-through' : dom ? 'bg-cocoa-950/50 text-cream-100/40' : 'bg-cocoa-800 text-cream-100 hover:bg-cocoa-700') +
-                    (ehHoje ? ' font-bold text-terracotta-400' : '')}
-                >
-                  {d}
-                  {temAg && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-terracotta-400" />}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-4 border-t border-cream-100/10 pt-3 text-xs text-cream-100/50">
-            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-terracotta-400" /> com agendamento</span>
-            <span className="flex items-center gap-1.5"><Ban size={11} /> dia bloqueado</span>
-          </div>
-        </div>
-
-        {/* Painel do dia selecionado */}
-        <div className="rounded-2xl bg-cocoa-900 p-5 ring-1 ring-cream-100/10">
-          {!diaSel ? (
-            <div className="grid h-full min-h-[200px] place-items-center text-center text-sm text-cream-100/40">
-              <div><Calendar size={28} className="mx-auto mb-3 text-cream-100/30" /> Selecione um dia no calendário</div>
-            </div>
-          ) : (
-            <DiaPainel
-              ds={diaSel}
-              bloqueado={diasBloqueados.includes(diaSel)}
-              horariosBloq={horariosBloqueados[diaSel] || []}
-              ags={agsDoDia(diaSel)}
-              ensaios={ensaiosDoDia(diaSel)}
-              horarios={horariosDoDia(diaSel)}
-              onToggleDia={() => toggleDiaBloqueado(diaSel)}
-              onToggleHora={(h) => toggleHorarioBloqueado(diaSel, h)}
-              onEditarHora={(antiga, nova) => editarHorario(diaSel, antiga, nova)}
-              onAdicionarHora={(h) => adicionarHorario(diaSel, h)}
-              onRemoverHora={(h) => removerHorario(diaSel, h)}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Reservas do site — aguardando confirmação */}
-      <h3 className="mt-8 font-serif text-xl">Reservas aguardando confirmação</h3>
-      {reservasAtivas.length === 0 ? (
-        <div className="mt-3 rounded-2xl bg-cocoa-900 p-8 text-center ring-1 ring-cream-100/10">
-          <Calendar size={28} className="mx-auto text-cream-100/30" />
-          <p className="mt-3 text-sm text-cream-100/60">Nenhuma reserva aguardando confirmação.</p>
-          <p className="mt-1 text-xs text-cream-100/35">O site não marca mais horário — quem pede contato por lá entra como <strong className="font-medium text-cream-100/60">lead</strong> em Clientes. As datas você marca aqui.</p>
-        </div>
-      ) : (
-        <div className="mt-3 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
-          <table className="w-full text-sm">
-            <thead className="bg-cocoa-900 text-left text-xs uppercase tracking-wide text-cream-100/40">
-              <tr><th className="px-5 py-3">Cliente</th><th className="px-5 py-3">Ensaio</th><th className="hidden px-5 py-3 md:table-cell">Data</th><th className="px-5 py-3">Reserva</th><th className="px-5 py-3 text-right">Ação</th></tr>
-            </thead>
-            <tbody className="divide-y divide-cream-100/5">
-              {reservasAtivas.map((a) => (
-                <tr key={a.id} className="bg-cocoa-900/40 hover:bg-cocoa-900">
-                  <td className="px-5 py-4">
-                    <button onClick={() => setDetalhe(a)} className="text-left hover:text-cream-100"><p className="font-medium">{a.nome}</p><p className="text-xs text-cream-100/40">{a.telefone}</p></button>
-                  </td>
-                  <td className="px-5 py-4">{a.pacoteNome}</td>
-                  <td className="hidden px-5 py-4 capitalize md:table-cell">{a.dia ? new Date(a.dia + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'} · {a.hora}</td>
-                  <td className="px-5 py-4 text-terracotta-400">{formatBRL(a.valorReserva)}</td>
-                  <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => setConfirmando(a)} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1.5 text-xs text-emerald-300 ring-1 ring-emerald-400/25 hover:bg-emerald-500/25"><Check size={12} /> Confirmar</button>
-                      <button onClick={() => { if (confirm('Cancelar esta reserva?')) cancelarAgendamento(a.id) }} className="rounded-full bg-cocoa-800 px-3 py-1.5 text-xs text-cream-100/60 ring-1 ring-cream-100/15 hover:text-red-300">Cancelar</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Histórico de reservas resolvidas */}
-      {reservasResolvidas.length > 0 && (
-        <div className="mt-4">
-          <button onClick={() => setVerHistorico((v) => !v)} className="text-xs text-cream-100/50 hover:text-cream-100">
-            {verHistorico ? '▾' : '▸'} Histórico de reservas ({reservasResolvidas.length})
-          </button>
-          {verHistorico && (
-            <div className="mt-2 overflow-hidden rounded-2xl ring-1 ring-cream-100/10">
-              <table className="w-full text-sm">
-                <tbody className="divide-y divide-cream-100/5">
-                  {reservasResolvidas.map((a) => (
-                    <tr key={a.id} onClick={() => setDetalhe(a)} className="cursor-pointer bg-cocoa-900/30 hover:bg-cocoa-900/60">
-                      <td className="px-5 py-3"><p className="text-cream-100/70">{a.nome}</p><p className="text-xs text-cream-100/40">{a.pacoteNome}</p></td>
-                      <td className="hidden px-5 py-3 capitalize md:table-cell">{a.dia ? new Date(a.dia + 'T12:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : '—'}</td>
-                      <td className="px-5 py-3 text-right">
-                        <span className={'rounded-full px-2.5 py-1 text-xs ' + (a.status === 'confirmado' ? 'bg-emerald-500/15 text-emerald-300' : a.status === 'cancelado' ? 'bg-cream-100/10 text-cream-100/50' : 'bg-sand-300/15 text-sand-200')}>
-                          {a.status === 'confirmado' ? 'Confirmada' : a.status === 'cancelado' ? 'Cancelada' : 'Passada'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {confirmando && (
-        <ConfirmarReserva
-          reserva={confirmando}
-          onClose={() => setConfirmando(null)}
-          onConfirmar={(duracaoMin) => { confirmarAgendamento(confirmando.id, duracaoMin); setConfirmando(null) }}
-        />
-      )}
-      {detalhe && <DetalheReserva reserva={detalhe} onClose={() => setDetalhe(null)} />}
-    </div>
-  )
-}
-
-function DiaPainel({ ds, bloqueado, horariosBloq, ags, ensaios = [], horarios, onToggleDia, onToggleHora, onEditarHora, onAdicionarHora, onRemoverHora }) {
-  const data = new Date(ds + 'T12:00')
-  const [aberto, setAberto] = useState(null)
-  const [editando, setEditando] = useState('')
-  const [novoHora, setNovoHora] = useState('')
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-serif text-xl capitalize">{data.toLocaleDateString('pt-BR', { weekday: 'long' })}</p>
-          <p className="text-sm text-cream-100/50">{data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</p>
-        </div>
-        <button onClick={onToggleDia} className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition ' + (bloqueado ? 'bg-terracotta-500/20 text-terracotta-400' : 'bg-cocoa-950 text-cream-100/60 hover:text-cream-100')}>
-          <Ban size={12} /> {bloqueado ? 'Desbloquear dia' : 'Bloquear dia'}
+        <button onClick={() => setEditor({ novo: true, inicio: new Date() })} className="btn-light !py-2.5 text-xs">
+          <Plus size={15} /> Novo compromisso
         </button>
       </div>
 
-      {ensaios.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs uppercase tracking-wide text-cream-100/40">Ensaios deste dia</p>
-          {ensaios.map((e) => (
-            <div key={e.id} className="rounded-lg bg-clay-500/10 px-3 py-2 text-sm text-clay-200">
-              <span className="flex items-center gap-2">
-                <Clock size={13} /> {e.hora || 'sem hora'} · <strong className="font-medium">{e.clienteNome}</strong>
-              </span>
-              <span className="mt-0.5 block text-xs text-clay-200/60">{e.titulo || e.tipoEnsaio || 'Ensaio'}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Legenda que também filtra */}
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        {[
+          ['ensaio', 'Ensaios', corDoTipo('ensaio')],
+          ['compromisso', 'Compromissos', corDoTipo('evento')],
+          ['aniversario', 'Aniversários', corDoTipo('aniversario')],
+          ['conta', 'Contas a vencer', corDoTipo('conta')],
+        ].map(([k, label, cor]) => (
+          <button
+            key={k}
+            onClick={() => setMostrar((m) => ({ ...m, [k]: !m[k] }))}
+            className={'inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs ring-1 transition ' +
+              (mostrar[k] ? 'bg-cocoa-800 text-cream-100 ring-cream-100/20' : 'bg-cocoa-950 text-cream-100/35 ring-cream-100/10')}
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: mostrar[k] ? cor : 'transparent', border: '1px solid ' + cor }} />
+            {label}
+          </button>
+        ))}
+        {carregando && <span className="inline-flex items-center gap-1.5 text-xs text-cream-100/40"><Loader2 size={13} className="animate-spin" /> carregando…</span>}
+      </div>
 
-      {ags.length > 0 && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs uppercase tracking-wide text-cream-100/40">Reservas do site (histórico)</p>
-          {ags.map((a) => (
-            <div key={a.id} className="flex items-center gap-2 rounded-lg bg-terracotta-500/10 px-3 py-2 text-sm text-terracotta-300">
-              <Clock size={13} /> {a.hora} · {a.nome}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="agenda-fc mt-5 rounded-2xl bg-cocoa-900 p-4 ring-1 ring-cream-100/10">
+        <FullCalendar
+          ref={calRef}
+          plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          locale={ptBr}
+          headerToolbar={{
+            left: 'prev,next hoje',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth',
+          }}
+          customButtons={{ hoje: { text: 'hoje', click: () => calRef.current && calRef.current.getApi().today() } }}
+          buttonText={{ month: 'Mês', week: 'Semana', day: 'Dia', list: 'Lista' }}
+          events={items}
+          editable
+          eventDrop={aoMover}
+          eventResize={aoMover}
+          eventClick={aoClicar}
+          dateClick={(info) => setEditor({ novo: true, inicio: info.date, diaInteiro: info.allDay })}
+          height="auto"
+          nowIndicator
+          slotMinTime="06:00:00"
+          slotMaxTime="23:00:00"
+          dayMaxEvents={4}
+          noEventsText="Nada marcado neste período"
+        />
+      </div>
 
-      {!bloqueado && (
-        <div className="mt-4">
-          <p className="text-xs uppercase tracking-wide text-cream-100/40">Horários (clique para editar, bloquear ou remover)</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {horarios.map((h) => {
-              const bloq = horariosBloq.includes(h)
-              const ocupado = ags.some((a) => a.hora === h)
-              return (
-                <div key={h} className="relative">
-                  <button
-                    onClick={() => { if (!ocupado) { setAberto(aberto === h ? null : h); setEditando(h) } }}
-                    disabled={ocupado}
-                    className={'rounded-full px-3 py-1.5 text-xs transition ' +
-                      (ocupado ? 'bg-terracotta-500/20 text-terracotta-400 cursor-not-allowed' : bloq ? 'bg-cocoa-950 text-cream-100/30 line-through' : aberto === h ? 'bg-clay-500 text-cream-50' : 'bg-cocoa-800 text-cream-100 hover:bg-cocoa-700')}
-                  >
-                    {h} {ocupado && '· ocupado'}
-                  </button>
-
-                  {aberto === h && !ocupado && (
-                    <div className="absolute left-0 top-full z-20 mt-2 w-56 rounded-xl bg-cocoa-950 p-3 shadow-2xl ring-1 ring-cream-100/15">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="time"
-                          value={editando}
-                          onChange={(e) => setEditando(e.target.value)}
-                          className="flex-1 rounded-lg bg-cocoa-900 px-2 py-1.5 text-sm text-cream-100 ring-1 ring-cream-100/15 focus:ring-clay-400 focus:outline-none"
-                        />
-                        <button
-                          onClick={() => { onEditarHora(h, editando); setAberto(null) }}
-                          className="grid h-8 w-8 place-items-center rounded-lg bg-clay-500 text-cream-50 hover:bg-clay-600"
-                          title="Salvar novo horário"
-                        ><Check size={15} /></button>
-                      </div>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => { onToggleHora(h); setAberto(null) }}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-cocoa-900 py-1.5 text-xs text-cream-100/80 hover:text-cream-100"
-                        ><Ban size={12} /> {bloq ? 'Desbloquear' : 'Bloquear'}</button>
-                        <button
-                          onClick={() => { onRemoverHora(h); setAberto(null) }}
-                          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta-500/15 py-1.5 text-xs text-terracotta-300 hover:bg-terracotta-500/25"
-                        ><Trash2 size={12} /> Remover</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="mt-4 flex items-center gap-2">
-            <input
-              type="time"
-              value={novoHora}
-              onChange={(e) => setNovoHora(e.target.value)}
-              className="rounded-lg bg-cocoa-950 px-3 py-2 text-sm text-cream-100 ring-1 ring-cream-100/15 focus:ring-clay-400 focus:outline-none"
-            />
-            <button
-              onClick={() => { if (novoHora) { onAdicionarHora(novoHora); setNovoHora('') } }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-cocoa-800 px-3 py-2 text-xs text-cream-100 hover:bg-cocoa-700"
-            ><Plus size={13} /> Adicionar horário</button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {editor && (
+          <EditorEvento
+            key="editor"
+            evento={editor.novo ? null : editor}
+            inicioSugerido={editor.inicio}
+            diaInteiroSugerido={editor.diaInteiro}
+            clientes={clientes}
+            onClose={() => setEditor(null)}
+            onSalvo={async () => { setEditor(null); await recarregar() }}
+          />
+        )}
+        {detalhe && <DetalheItem key="detalhe" item={detalhe} onClose={() => setDetalhe(null)} />}
+      </AnimatePresence>
     </div>
   )
 }
 
-/* ---- Modal: confirmar reserva com a DURAÇÃO REAL ---- */
-function ConfirmarReserva({ reserva, onClose, onConfirmar }) {
-  const [dur, setDur] = useState(reserva.duracaoMin || 60)
+/* ---------------- Editor de compromisso ---------------- */
+function EditorEvento({ evento, inicioSugerido, diaInteiroSugerido, clientes, onClose, onSalvo }) {
+  const paraInput = (d) => {
+    const x = new Date(d)
+    return x.getFullYear() + '-' + dp(x.getMonth() + 1) + '-' + dp(x.getDate()) + 'T' + dp(x.getHours()) + ':' + dp(x.getMinutes())
+  }
+  const [titulo, setTitulo] = useState(evento ? evento.titulo : '')
+  const [descricao, setDescricao] = useState(evento ? evento.descricao : '')
+  const [tipo, setTipo] = useState(evento ? evento.tipo : 'reuniao')
+  const [inicio, setInicio] = useState(paraInput(evento ? evento.inicio : (inicioSugerido || new Date())))
+  const [fim, setFim] = useState(evento && evento.fim ? paraInput(evento.fim) : '')
+  const [diaInteiro, setDiaInteiro] = useState(evento ? evento.diaInteiro : !!diaInteiroSugerido)
+  const [clienteId, setClienteId] = useState(evento ? evento.clienteId || '' : '')
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
   const inp = 'mt-1.5 w-full rounded-xl border border-cream-100/10 bg-cocoa-950 px-4 py-3 text-sm text-cream-100 outline-none focus:border-terracotta-400'
+  const valido = titulo.trim() && inicio
+
+  const salvar = async () => {
+    if (!valido || salvando) return
+    setSalvando(true)
+    setErro('')
+    const campos = {
+      titulo: titulo.trim(), descricao, tipo,
+      inicio: new Date(inicio).toISOString(),
+      fim: fim ? new Date(fim).toISOString() : null,
+      diaInteiro, clienteId: clienteId || null,
+      cor: corDoTipo(tipo),
+    }
+    const r = evento ? await atualizarEvento(evento.id, campos) : await criarEvento(campos)
+    setSalvando(false)
+    if (!r || r.erro) { setErro((r && r.erro) || 'Não foi possível salvar.'); return }
+    onSalvo()
+  }
+
+  const remover = async () => {
+    if (!evento) return
+    if (!window.confirm('Excluir este compromisso da agenda?')) return
+    await excluirEvento(evento.id)
+    onSalvo()
+  }
+
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-cocoa-950/40 p-4">
+      <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
         <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-2 font-serif text-2xl"><CalendarCheck size={20} className="text-emerald-300" /> Confirmar reserva</h3>
+          <h3 className="font-serif text-2xl">{evento ? 'Editar compromisso' : 'Novo compromisso'}</h3>
           <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
         </div>
-        <p className="mt-2 text-sm text-cream-100/60">{reserva.nome} · {reserva.pacoteNome}{reserva.dia ? ' · ' + new Date(reserva.dia + 'T12:00').toLocaleDateString('pt-BR') + ' ' + reserva.hora : ''}</p>
-        <p className="mt-4 text-sm text-cream-100/70">Para confirmar, informe o <strong>tempo real</strong> do ensaio. A agenda bloqueia os horários desse dia automaticamente.</p>
-        <label className="mt-4 block"><span className="text-sm text-cream-100/80">Duração do ensaio (minutos)</span>
-          <input type="number" min="15" step="15" className={inp} value={dur} onChange={(e) => setDur(e.target.value)} />
-        </label>
-        <button onClick={() => onConfirmar(Math.max(15, Number(dur) || 60))} className="btn-light mt-6 w-full"><Check size={16} /> Confirmar e bloquear horários</button>
-      </div>
-    </div>
+
+        <div className="mt-5 space-y-4">
+          <label className="block"><span className="text-sm text-cream-100/80">O que é</span>
+            <input className={inp} value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex: Reunião com a gráfica" />
+          </label>
+
+          <label className="block"><span className="text-sm text-cream-100/80">Tipo (define a cor)</span>
+            <select className={inp} value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              {TIPOS.map((t) => <option key={t} value={t}>{CORES_EVENTO[t].nome}</option>)}
+            </select>
+            <span className="mt-2 flex items-center gap-2 text-xs text-cream-100/45">
+              <span className="h-3 w-3 rounded-full" style={{ background: corDoTipo(tipo) }} /> aparece assim no calendário
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-cream-100/80">
+            <input type="checkbox" checked={diaInteiro} onChange={(e) => setDiaInteiro(e.target.checked)} className="h-4 w-4 accent-terracotta-500" />
+            Dia inteiro
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className="text-sm text-cream-100/80">Começa</span>
+              <input type="datetime-local" className={inp} value={inicio} onChange={(e) => setInicio(e.target.value)} />
+            </label>
+            <label className="block"><span className="text-sm text-cream-100/80">Termina <span className="text-cream-100/40">(opcional)</span></span>
+              <input type="datetime-local" className={inp} value={fim} onChange={(e) => setFim(e.target.value)} />
+            </label>
+          </div>
+
+          <label className="block"><span className="text-sm text-cream-100/80">Cliente <span className="text-cream-100/40">(opcional)</span></span>
+            <select className={inp} value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
+              <option value="">Nenhum</option>
+              {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </label>
+
+          <label className="block"><span className="text-sm text-cream-100/80">Detalhes</span>
+            <textarea rows={2} className={inp} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Anotações..." />
+          </label>
+        </div>
+
+        {erro && <p className="mt-4 rounded-xl bg-red-500/10 p-3 text-xs text-red-300 ring-1 ring-red-400/30">{erro}</p>}
+
+        <div className="mt-6 flex gap-2">
+          {evento && (
+            <button onClick={remover} className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-4 py-2.5 text-xs text-red-300 ring-1 ring-red-400/25 hover:bg-red-500/25">
+              <Trash2 size={14} /> Excluir
+            </button>
+          )}
+          <button onClick={salvar} disabled={!valido || salvando} className="btn-light flex-1 !py-2.5 text-xs disabled:opacity-40">
+            {salvando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Salvar
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
-/* ---- Modal: detalhes da reserva ---- */
-function DetalheReserva({ reserva, onClose }) {
-  const wa = waLink(reserva.telefone)
-  const linha = (k, v) => (
-    <div className="flex justify-between gap-3 border-b border-cream-100/5 py-2 text-sm last:border-0"><span className="text-cream-100/50">{k}</span><span className="text-right text-cream-100/90">{v || '—'}</span></div>
-  )
+/* ---------------- Detalhe de ensaio / aniversário / conta ---------------- */
+function DetalheItem({ item, onClose }) {
+  const { fonte, ensaio, cliente, conta } = item
+  const quando = item.inicio
+    ? new Date(item.inicio).toLocaleString('pt-BR',
+        fonte === 'ensaio' && ensaio && ensaio.hora
+          ? { dateStyle: 'full', timeStyle: 'short' }
+          : { dateStyle: 'full' })
+    : '—'
+
   return (
-    <div onClick={onClose} className="fixed inset-0 z-[70] flex items-center justify-center bg-cocoa-950/40 p-4">
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
-        <div className="flex items-center justify-between">
-          <h3 className="font-serif text-2xl">{reserva.nome}</h3>
-          <button onClick={onClose} className="text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-cocoa-950/40 p-4">
+      <motion.div initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-3xl bg-cocoa-900 p-7 ring-1 ring-cream-100/10">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-cream-100/40">
+              {fonte === 'ensaio' ? 'Ensaio' : fonte === 'aniversario' ? 'Aniversário' : 'Conta a receber'}
+            </p>
+            <h3 className="font-serif text-2xl">{item.titulo}</h3>
+          </div>
+          <button onClick={onClose} className="shrink-0 text-cream-100/40 hover:text-cream-100"><X size={20} /></button>
         </div>
-        <div className="mt-4 rounded-2xl bg-cocoa-950 p-4">
-          {linha('Telefone', reserva.telefone)}
-          {linha('E-mail', reserva.email)}
-          {linha('Ensaio', reserva.servico)}
-          {linha('Pacote', reserva.pacoteNome)}
-          {linha('Data', reserva.dia ? new Date(reserva.dia + 'T12:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) + ' · ' + reserva.hora : '—')}
-          {reserva.duracaoMin && linha('Duração', reserva.duracaoMin + ' min')}
-          {linha('Reserva', formatBRL(reserva.valorReserva))}
-          {linha('Status', reserva.status === 'a-confirmar' ? 'Aguardando confirmação' : reserva.status === 'confirmado' ? 'Confirmada' : 'Cancelada')}
+
+        <div className="mt-4 rounded-2xl bg-cocoa-950 p-4 text-sm">
+          <Linha k="Quando" v={quando} />
+          {fonte === 'ensaio' && (
+            <>
+              <Linha k="Cliente" v={cliente && cliente.nome} />
+              {ensaio && ensaio.hora && <Linha k="Horário" v={ensaio.hora} />}
+              {ensaio && ensaio.duracaoMin && <Linha k="Duração" v={ensaio.duracaoMin + ' min'} />}
+              {ensaio && ensaio.local && <Linha k="Local" v={ensaio.local} />}
+              <Linha k="Valor" v={formatBRL((ensaio && ensaio.valor) || 0)} />
+            </>
+          )}
+          {fonte === 'aniversario' && <Linha k="Cliente" v={cliente && cliente.nome} />}
+          {fonte === 'conta' && (
+            <>
+              <Linha k="Valor" v={formatBRL((conta && conta.valor) || 0)} />
+              <Linha k="Situação" v={conta && conta.status === 'pago' ? 'Recebido' : 'A receber'} />
+            </>
+          )}
         </div>
-        {wa && <a href={wa} target="_blank" rel="noreferrer" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366]/15 px-4 py-2.5 text-sm text-[#25D366] hover:bg-[#25D366]/25">Chamar no WhatsApp</a>}
-      </div>
+
+        <p className="mt-4 text-[11px] text-cream-100/40">
+          {fonte === 'ensaio' && 'Arraste no calendário para remarcar. Para editar valor, situação e cobranças, abra este ensaio na ficha do cliente.'}
+          {fonte === 'aniversario' && 'As mensagens de aniversário ficam na Visão geral, com modelos prontos.'}
+          {fonte === 'conta' && 'Para receber ou reabrir, vá em Contas a pagar/receber.'}
+        </p>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function Linha({ k, v }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-cream-100/5 py-1.5 last:border-0">
+      <span className="shrink-0 text-cream-100/45">{k}</span>
+      <span className="text-right text-cream-100/85">{v || '—'}</span>
     </div>
   )
 }

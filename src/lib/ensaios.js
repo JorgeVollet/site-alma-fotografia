@@ -18,6 +18,8 @@ export function mapEnsaio(row) {
     fotoExtra: row.foto_extra != null ? Number(row.foto_extra) : null,
     sinal: row.sinal != null ? Number(row.sinal) : null,
     fotosInclusas: row.fotos_inclusas != null ? Number(row.fotos_inclusas) : null,
+    duracaoMin: row.duracao_min != null ? Number(row.duracao_min) : null,
+    cor: row.cor || null,
     origem: row.origem || 'manual', // 'site' = veio de uma reserva do site
   }
 }
@@ -37,6 +39,8 @@ function paraColunas(campos) {
   if ('fotoExtra' in campos) col.foto_extra = campos.fotoExtra || null
   if ('sinal' in campos) col.sinal = campos.sinal
   if ('fotosInclusas' in campos) col.fotos_inclusas = campos.fotosInclusas
+  if ('duracaoMin' in campos) col.duracao_min = campos.duracaoMin
+  if ('cor' in campos) col.cor = campos.cor || null
   return col
 }
 

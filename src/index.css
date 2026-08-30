@@ -290,3 +290,53 @@
 .painel-claro .bg-terracotta-500 { background-color: #a67a55 !important; color: #fbfbfa !important; }
 .painel-claro button.bg-terracotta-500 *,
 .painel-claro .bg-terracotta-500 * { color: #fbfbfa !important; }
+
+/* ── Agenda (FullCalendar) — veste o calendário com a cara do painel ──
+   O FullCalendar traz o próprio CSS claro; aqui a gente só remapeia as
+   variáveis dele para os tons do sistema, em vez de brigar seletor a seletor. */
+.agenda-fc {
+  --fc-border-color: rgba(245, 240, 232, 0.10);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: rgba(245, 240, 232, 0.04);
+  --fc-today-bg-color: rgba(193, 121, 90, 0.12);
+  --fc-now-indicator-color: #c1795a;
+  --fc-list-event-hover-bg-color: rgba(245, 240, 232, 0.06);
+  color: #f5f0e8;
+}
+.agenda-fc .fc { font-family: inherit; }
+.agenda-fc .fc-toolbar-title { font-family: 'Fraunces', Georgia, serif; font-size: 1.35rem; }
+.agenda-fc .fc .fc-button {
+  background: #2a2521; border-color: rgba(245, 240, 232, 0.14);
+  color: rgba(245, 240, 232, 0.85); text-transform: capitalize;
+  box-shadow: none; font-size: .78rem; padding: .38rem .7rem;
+}
+.agenda-fc .fc .fc-button:hover { background: #3a332d; }
+.agenda-fc .fc .fc-button-primary:not(:disabled).fc-button-active,
+.agenda-fc .fc .fc-button-primary:not(:disabled):active {
+  background: #c1795a; border-color: #c1795a; color: #fff;
+}
+.agenda-fc .fc .fc-button:focus { box-shadow: none; }
+.agenda-fc .fc-col-header-cell-cushion,
+.agenda-fc .fc-daygrid-day-number { color: rgba(245, 240, 232, 0.6); font-size: .78rem; text-decoration: none; }
+.agenda-fc .fc-day-today .fc-daygrid-day-number { color: #c1795a; font-weight: 600; }
+.agenda-fc .fc-event { border-radius: 6px; padding: 1px 4px; font-size: .72rem; cursor: pointer; }
+.agenda-fc .fc-event-main { color: #fff; }
+.agenda-fc .fc-daygrid-event-dot { display: none; }
+.agenda-fc .fc-list-day-cushion { background: rgba(245, 240, 232, 0.05); }
+.agenda-fc .fc-list-event td { color: rgba(245, 240, 232, 0.8); }
+.agenda-fc .fc-timegrid-slot-label-cushion { color: rgba(245, 240, 232, 0.45); font-size: .7rem; }
+.agenda-fc .fc-scrollgrid { border-radius: 10px; overflow: hidden; }
+
+/* No tema claro do painel, o calendário acompanha */
+.painel-claro .agenda-fc {
+  --fc-border-color: rgba(58, 63, 58, 0.12);
+  --fc-neutral-bg-color: rgba(58, 63, 58, 0.04);
+  --fc-list-event-hover-bg-color: rgba(58, 63, 58, 0.05);
+  color: #3a3f3a;
+}
+.painel-claro .agenda-fc .fc .fc-button { background: #efe9dd; color: #4a504a; border-color: rgba(58, 63, 58, 0.15); }
+.painel-claro .agenda-fc .fc .fc-button:hover { background: #e5ddcd; }
+.painel-claro .agenda-fc .fc-col-header-cell-cushion,
+.painel-claro .agenda-fc .fc-daygrid-day-number { color: #5b625a; }
+.painel-claro .agenda-fc .fc-list-event td { color: #4a504a; }
+.painel-claro .agenda-fc .fc-timegrid-slot-label-cushion { color: #66614f; }

@@ -212,6 +212,9 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
   const [titulo, setTitulo] = useState(ensaio ? ensaio.titulo || '' : '')
   const [valor, setValor] = useState(ensaio ? ensaio.valor || '' : '')
   const [data, setData] = useState(ensaio ? ensaio.data || '' : '')
+  const [hora, setHora] = useState(ensaio ? ensaio.hora || '' : '')
+  const [local, setLocal] = useState(ensaio ? ensaio.local || '' : '')
+  const [duracaoMin, setDuracaoMin] = useState(ensaio && ensaio.duracaoMin ? ensaio.duracaoMin : '')
   const [status, setStatus] = useState(ensaio ? ensaio.status || 'agendado' : 'orcamento')
   const [observacoes, setObservacoes] = useState(ensaio ? ensaio.observacoes || '' : '')
   // O que foi COMBINADO fica no ensaio: e daqui que saem a cobranca do sinal e
@@ -265,6 +268,11 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
             <label className="block"><span className="text-sm text-cream-100/80">Data</span><input type="date" className={inp} value={data || ''} onChange={(e) => setData(e.target.value)} /></label>
           </div>
           <div className="grid grid-cols-3 gap-3">
+            <label className="block"><span className="text-sm text-cream-100/80">Horário</span><input type="time" className={inp} value={hora || ''} onChange={(e) => setHora(e.target.value)} /></label>
+            <label className="block"><span className="text-sm text-cream-100/80">Duração (min)</span><input type="number" step="15" className={inp} value={duracaoMin} onChange={(e) => setDuracaoMin(e.target.value)} placeholder="120" /></label>
+            <label className="block"><span className="text-sm text-cream-100/80">Local</span><input className={inp} value={local} onChange={(e) => setLocal(e.target.value)} placeholder="Estúdio" /></label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
             <label className="block"><span className="text-sm text-cream-100/80">Sinal / entrada</span><input type="number" className={inp} value={sinal} onChange={(e) => setSinal(e.target.value)} placeholder="100" /></label>
             <label className="block"><span className="text-sm text-cream-100/80">Fotos inclusas</span><input type="number" className={inp} value={fotosInclusas} onChange={(e) => setFotosInclusas(e.target.value)} placeholder="10" /></label>
             <label className="block"><span className="text-sm text-cream-100/80">Foto extra (R$)</span><input type="number" className={inp} value={fotoExtra} onChange={(e) => setFotoExtra(e.target.value)} placeholder="30" /></label>
@@ -283,7 +291,7 @@ function EditorEnsaio({ ensaio, onClose, onSalvar }) {
           </label>
           <label className="block"><span className="text-sm text-cream-100/80">Observações</span><textarea className={inp} rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Detalhes do ensaio..." /></label>
         </div>
-        <button onClick={() => valido && onSalvar({ titulo: titulo.trim(), tipo, pacote, valor: Number(valor) || 0, data: data || null, status, observacoes, sinal: sinal === '' ? null : Number(sinal), fotosInclusas: fotosInclusas === '' ? null : Number(fotosInclusas), fotoExtra: fotoExtra === '' ? null : Number(fotoExtra) })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {ensaio ? 'Salvar ensaio' : 'Adicionar ensaio'}</button>
+        <button onClick={() => valido && onSalvar({ titulo: titulo.trim(), tipo, pacote, valor: Number(valor) || 0, data: data || null, hora: hora || null, local: local || null, duracaoMin: duracaoMin === '' ? null : Number(duracaoMin), status, observacoes, sinal: sinal === '' ? null : Number(sinal), fotosInclusas: fotosInclusas === '' ? null : Number(fotosInclusas), fotoExtra: fotoExtra === '' ? null : Number(fotoExtra) })} disabled={!valido} className="btn-light mt-7 w-full disabled:opacity-40"><Check size={16} /> {ensaio ? 'Salvar ensaio' : 'Adicionar ensaio'}</button>
       </motion.div>
     </motion.div>
   )
