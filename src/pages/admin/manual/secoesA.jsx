@@ -25,7 +25,7 @@ export function SecaoIntro() {
 export function SecaoVisao() {
   return (
     <Secao id="visao" titulo="Visão geral" sub="Seu centro de comando diário">
-      <P>É a primeira tela ao entrar. Mostra os números do estúdio (receita do mês, agendamentos, fotos selecionadas, ensaios ativos) e, no topo, a <strong className="text-cream-100">Central de pendências</strong> — tudo que precisa da sua atenção hoje.</P>
+      <P>É a primeira tela ao entrar. Mostra os números do estúdio (recebido no mês, a receber, pedidos de contato vindos do site, ensaios ativos) e, no topo, a <strong className="text-cream-100">Central de pendências</strong> — tudo que precisa da sua atenção hoje.</P>
       <Print titulo="Visão geral · pendências">
         <p className="mb-2 flex items-center gap-2 text-sm font-medium text-cream-100">⚠️ Precisa da sua atenção</p>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -84,7 +84,7 @@ export function SecaoSelecoes() {
         O botão <strong>"Exportar lista p/ Lightroom"</strong> gera um arquivo .txt com os nomes das fotos escolhidas. Você importa no filtro do Lightroom e edita só as selecionadas — sem procurar foto por foto. Funciona também no Windows Explorer e Mac Finder.
       </Caixa>
       <Caixa tipo="dica" titulo="Status de pagamento na tela">
-        Logo acima dos números do ensaio, um aviso mostra se o cliente <strong>já pagou o valor restante</strong> (verde — pode iniciar a edição) ou se está <strong>pendente</strong> (amarelo — mostra quanto falta e o prazo de 3 dias úteis). A reserva paga no agendamento já entra abatida. Assim você sabe, na mesma tela, se vale começar a editar ou esperar o pagamento cair.
+        O painel de pagamento lista <strong>cada cobrança separadamente</strong>: o <strong>saldo do ensaio</strong> (valor combinado menos a entrada) e, quando o cliente escolhe mais fotos do que o pacote inclui, as <strong>fotos extras</strong>. Cada linha tem seu próprio botão de marcar recebido — e dá para desfazer se clicar errado. Assim você não vê "pago" enquanto as fotos extras seguem em aberto.
       </Caixa>
       <Caixa tipo="costura" titulo="Conexões das Seleções">
         Mudar o status aqui reflete na <strong>Visão geral</strong>, no <strong>Funil</strong> (ao entregar, o cliente vai para "Entregue") e dispara <strong>WhatsApp</strong> automático. As fotos extras viram base para cobrança em <strong>Contas a receber</strong>.
@@ -96,7 +96,21 @@ export function SecaoSelecoes() {
 export function SecaoGalerias() {
   return (
     <Secao id="galerias" titulo="Galerias" sub="O espaço privado de cada cliente">
-      <P>Cada cliente tem uma galeria própria, protegida por um código de acesso. É o "Alboom" do estúdio: aqui você cria a galeria, faz upload das fotos do ensaio e acompanha o que o cliente selecionou.</P>
+      <P>Cada cliente tem uma galeria própria, protegida por <strong className="text-cream-100">código e senha</strong>. É o "Alboom" do estúdio: aqui você cria a galeria, sobe as fotos e acompanha o que o cliente escolheu.</P>
+      <P>A galeria tem <strong className="text-cream-100">duas abas</strong>: <em>Fotos p/ seleção</em> (as provas, com marca d'água) e <em>Entrega das fotos</em> (as finais editadas, sem marca).</P>
+      <Caixa tipo="dica" titulo="Entrega em duas versões — sem trabalho dobrado">
+        Você sobe <strong>só a foto em alta</strong>. Na hora de baixar, o cliente escolhe entre <strong>alta resolução</strong> (para guardar e imprimir) ou <strong>para redes sociais</strong> — e essa segunda versão é criada na hora, no navegador dele, com 2048px e cores prontas para o Instagram.
+        <br /><br />
+        É isso que evita aquela cor estranha quando o cliente publica: o Instagram recomprime foto grande demais e força o próprio perfil de cor. Entregando já no tamanho certo, ele quase não mexe na imagem.
+      </Caixa>
+      <Caixa tipo="dica" titulo="Deixar o cliente pagar pelo site">
+        No topo da galeria existe um botão de <strong>liga/desliga</strong>. Ligado, o cliente pode pedir para pagar na hora em que envia a seleção, e você recebe o aviso para mandar o link. Desligado, ele só confirma a escolha e você recebe como sempre — maquininha ou PIX — lançando no financeiro.
+        <br /><br />
+        Deixe do jeito que fizer sentido para cada cliente. Não é obrigatório usar.
+      </Caixa>
+      <Caixa tipo="atencao" titulo="Galeria sem senha não abre">
+        Por segurança, uma galeria sem senha definida <strong>não deixa ninguém entrar</strong> — antes bastava acertar o código. Defina a senha antes de avisar o cliente.
+      </Caixa>
       <Print titulo="Galerias">
         <div className="grid grid-cols-3 gap-2">
           {[['Família Hoffmann', 'Newborn'], ['Eduardo & Camila', 'Casamento'], ['Joana', 'Família']].map(([n, e]) => (
@@ -122,8 +136,9 @@ export function SecaoGalerias() {
 
 export function SecaoAgenda() {
   return (
-    <Secao id="agenda" titulo="Agenda" sub="Disponibilidade real, sem conflitos">
-      <P>No calendário, você marca os dias e horários que estão <strong className="text-cream-100">disponíveis ou bloqueados</strong>. O site de agendamento mostra ao cliente apenas os horários livres — acabou o risco de marcar dois ensaios no mesmo horário.</P>
+    <Secao id="agenda" titulo="Agenda" sub="Os ensaios marcados, num calendário só">
+      <P>O calendário mostra <strong className="text-cream-100">os ensaios que você marcou</strong> na ficha do cliente. Clique num dia para ver o que está agendado, com horário e nome de quem vai ser fotografado.</P>
+      <P>Você também pode bloquear dias e definir o intervalo de descanso entre ensaios — isso serve de referência sua ao montar o dia.</P>
       <Print titulo="Agenda · calendário de disponibilidade">
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: 21 }).map((_, i) => (
@@ -131,8 +146,11 @@ export function SecaoAgenda() {
           ))}
         </div>
       </Print>
+      <Caixa tipo="atencao" titulo="O site não marca mais horário">
+        Por decisão do estúdio, o site deixou de oferecer marcação de data e hora — cada ensaio tem uma duração própria e fixar isso online dava confusão. Quem entra em contato pelo site vira um <strong>pedido de contato</strong> em Clientes, e <strong>a data quem marca é você</strong>, aqui ou na ficha do cliente.
+      </Caixa>
       <Caixa tipo="costura" titulo="Conexões da Agenda">
-        Os horários que você bloqueia aqui <strong>somem automaticamente</strong> da tela de agendamento do site público. Quando um cliente agenda online, a reserva aparece aqui e também entra no <strong>Financeiro</strong> como entrada paga.
+        Todo ensaio com data preenchida aparece neste calendário automaticamente. Marcou a data na ficha do cliente? Já está aqui.
       </Caixa>
     </Secao>
   )
@@ -170,16 +188,19 @@ export function SecaoPortfolio() {
         </div>
       </Print>
       <Passos itens={[
-        'Clique em "Adicionar ensaio" e informe título, subtítulo, categoria e a foto de capa.',
-        'O ensaio aparece como card. Clique em "Fotos" para adicionar as imagens daquele trabalho.',
+        'Clique em "Adicionar ensaio" e informe título, subtítulo e categoria. A capa é a primeira foto — não precisa escolher.',
+        'O ensaio aparece como card. Clique em "Fotos" e escolha os arquivos no seu computador: eles sobem direto para a nuvem.',
         'Use "Editar" para mudar os dados e "Ver página do ensaio" para conferir como ficou no site.',
         'No site, o visitante filtra por categoria, clica num card e vê o ensaio completo com lightbox.',
       ]} />
       <Caixa tipo="costura" titulo="Conexões do Portfólio">
         Os ensaios que você cria aqui aparecem direto na <strong>página de Portfólio do site</strong> e em cada <strong>página de ensaio</strong> própria. As categorias usam a mesma lista do site (Gestante, Newborn, Família, etc.), então tudo fica consistente.
       </Caixa>
-      <Caixa tipo="atencao" titulo="Sobre as fotos (versão demo)">
-        Hoje as fotos são adicionadas por <strong>link (URL)</strong>. O upload de arquivo direto entra na versão com armazenamento na nuvem (Supabase), sem mudar nada do que você já montou aqui.
+      <Caixa tipo="dica" titulo="As fotos ficam na nuvem, não no seu navegador">
+        O que você monta aqui é salvo no servidor: aparece para <strong>todo visitante do site</strong> e continua igual se você abrir o painel de outro computador. As imagens são reduzidas para 2000px antes de subir — o site carrega rápido e a qualidade continua ótima na tela.
+      </Caixa>
+      <Caixa tipo="dica" titulo="Atalho: aproveitar as favoritas de um ensaio">
+        Em <strong>Seleções</strong>, quando você marca fotos como favoritas do fotógrafo, aparece a opção de <strong>levar para o portfólio</strong>. As fotos são copiadas sem marca d'água — é o caminho mais rápido de alimentar a vitrine com trabalho recém-entregue.
       </Caixa>
     </Secao>
   )

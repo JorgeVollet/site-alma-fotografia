@@ -5,6 +5,14 @@ export function SecaoClientesFunil() {
     <Secao id="clientes" titulo="Clientes e Funil de vendas" sub="A base do CRM e o caminho de cada negócio">
       <P>Em <strong className="text-cream-100">Clientes</strong> ficam todos os contatos — clientes ativos e leads. Cada um tem uma ficha com histórico de ensaios, total investido e botão de WhatsApp. Você adiciona, edita e busca clientes.</P>
       <P>O <strong className="text-cream-100">Funil de vendas</strong> é um quadro Kanban onde cada cliente passa pelas etapas: Novo lead → Orçamento → Agendado → Em produção → Entregue. Você arrasta os cartões entre as colunas.</P>
+      <Caixa tipo="dica" titulo="Fechar negócio: digite o valor uma vez só">
+        Combinou o valor no WhatsApp? Abra a ficha do cliente, edite o ensaio e preencha <strong>Valor</strong>, <strong>Sinal (entrada)</strong>, <strong>Fotos inclusas</strong> e <strong>Foto extra</strong>. Salve com a situação <strong>Agendado</strong>.
+        <br /><br />
+        A partir daí o sistema faz o resto sozinho: cria a cobrança do <strong>sinal</strong> e a do <strong>saldo</strong> em "A receber", move o cliente no funil, e a galeria já nasce com os números certos. Você não digita o mesmo valor em quatro lugares — que era de onde vinham as divergências.
+      </Caixa>
+      <Caixa tipo="atencao" titulo="Situação do ensaio importa">
+        <strong>Solicitado</strong> e <strong>Orçamento</strong> significam "ainda negociando": não geram cobrança nenhuma nem mexem na agenda. Só ao passar para <strong>Agendado</strong> o dinheiro entra no financeiro. Use isso para orçar sem sujar o caixa.
+      </Caixa>
       <Print titulo="Funil de vendas (Kanban)">
         <div className="flex gap-2 overflow-x-auto">
           {[['Novo lead', 'bg-sand-300'], ['Orçamento', 'bg-clay-400'], ['Agendado', 'bg-terracotta-400'], ['Produção', 'bg-clay-500'], ['Entregue', 'bg-cocoa-600']].map(([nome, cor]) => (
@@ -29,6 +37,12 @@ export function SecaoContratos() {
   return (
     <Secao id="contratos" titulo="Contratos e assinatura" sub="Do modelo ao aceite, tudo digital">
       <P>Crie contratos de 3 formas: a partir de um <strong className="text-cream-100">modelo</strong> pronto, <strong className="text-cream-100">do zero</strong> (escrevendo cada cláusula), ou fazendo <strong className="text-cream-100">upload de um PDF</strong> que o estúdio já tem. Depois, envie para o cliente assinar pelo celular.</P>
+      <Caixa tipo="dica" titulo="Todo contrato pertence a um ensaio">
+        O contrato sempre nasce ligado a um ensaio — se o cliente ainda não tiver nenhum, o sistema cria junto. Isso não é burocracia: é o que garante que a cobrança fique num lugar só. Contrato solto gerava uma cobrança, o ensaio gerava outra, e o cliente era cobrado duas vezes pelo mesmo serviço.
+      </Caixa>
+      <Caixa tipo="atencao" titulo="Contrato enviado em PDF">
+        Quando o contrato é um PDF anexado, a página de assinatura <strong>não exibe o arquivo</strong> — quem assina precisa confirmar que recebeu e leu o documento antes de liberar a assinatura. Mande o PDF ao cliente pelo WhatsApp ou e-mail antes de pedir a assinatura.
+      </Caixa>
       <Print titulo="Contrato · enviar para assinatura">
         <div className="space-y-2">
           <MiniCliente inicial="E" nome="Eduardo & Camila" sub="Contrato de Casamento · R$ 1.490" grad="ph-gradient-3" tag="Assinado" />
@@ -72,10 +86,10 @@ export function SecaoTarefas() {
 export function SecaoFinanceiro() {
   return (
     <Secao id="financeiro" titulo="Lançamentos e Financeiro" sub="Todo o dinheiro do estúdio, organizado">
-      <P>Em <strong className="text-cream-100">Lançamentos</strong> você registra entradas (reservas, pacotes, fotos extras) e saídas (aluguel, material, produção). Cada lançamento tem categoria, data, status (pago/pendente) e pode ser ligado a um cliente. Filtre por tipo e marque pago com um clique (reversível).</P>
+      <P>Em <strong className="text-cream-100">Lançamentos</strong> você registra entradas (sinal, saldo do ensaio, fotos extras) e saídas (aluguel, material, produção). Cada lançamento tem categoria, data, status (pago/pendente) e pode ser ligado a um cliente. Filtre por tipo e marque pago com um clique (reversível).</P>
       <Print titulo="Lançamentos">
         <div className="space-y-1.5">
-          {[['↑ Reserva — Eduardo', '+ R$ 300', 'clay'], ['↑ Saldo pacote — Joana', '+ R$ 690', 'clay'], ['↓ Aluguel do estúdio', '− R$ 1.200', 'gray']].map(([d, v, c]) => (
+          {[['↑ Sinal — Eduardo', '+ R$ 100', 'clay'], ['↑ Saldo do ensaio — Joana', '+ R$ 1.100', 'clay'], ['↓ Aluguel do estúdio', '− R$ 1.200', 'gray']].map(([d, v, c]) => (
             <div key={d} className="flex items-center justify-between rounded-lg bg-cocoa-900 px-3 py-2 text-xs ring-1 ring-cream-100/10">
               <span className="text-cream-100/80">{d}</span>
               <span className={c === 'clay' ? 'text-clay-300' : 'text-cream-100/60'}>{v}</span>
@@ -84,7 +98,7 @@ export function SecaoFinanceiro() {
         </div>
       </Print>
       <Caixa tipo="costura" titulo="Conexões do Financeiro">
-        As <strong>reservas feitas no site</strong> entram aqui automaticamente. Quando você <strong>quita uma conta</strong> (a pagar/receber), ela vira um lançamento. Tudo que está aqui alimenta o <strong>Fluxo de caixa e o DRE</strong>.
+        Quando você <strong>quita uma conta</strong> (a receber ou a pagar), ela vira um lançamento sozinha — entrada ou saída. Tudo que está aqui alimenta o <strong>Fluxo de caixa e o DRE</strong>, que agora são filtrados por <strong>ano</strong>.
       </Caixa>
     </Secao>
   )
@@ -130,7 +144,7 @@ export function SecaoFluxoDRE() {
         Clique numa barra de mês ou numa categoria do DRE para ver exatamente quais lançamentos formam aquele número.
       </Caixa>
       <Caixa tipo="costura" titulo="Conexões">
-        O fluxo de caixa e o DRE são <strong>alimentados automaticamente</strong> por todos os lançamentos do Financeiro e pelas reservas do site. Não precisa digitar nada duas vezes — o que você registra em Lançamentos/Contas aparece aqui.
+        O fluxo de caixa e o DRE são <strong>alimentados automaticamente</strong> por todos os lançamentos do Financeiro. Não precisa digitar nada duas vezes — o que você registra em Lançamentos/Contas aparece aqui.
       </Caixa>
     </Secao>
   )
@@ -157,7 +171,7 @@ export function SecaoRelatorios() {
 export function SecaoWhatsApp() {
   return (
     <Secao id="whatsapp" titulo="Integrações e WhatsApp" sub="Comunicação automática com o cliente">
-      <P>O painel usa o WhatsApp do cliente (já cadastrado na ficha) para avisos automáticos em momentos-chave. No demonstrativo, a mensagem aparece pronta para você enviar; na versão final, é disparada automaticamente por API.</P>
+      <P>O painel usa o WhatsApp do cliente (já cadastrado na ficha) para avisar em momentos-chave. A mensagem <strong className="text-cream-100">nunca é enviada sozinha</strong>: abre um pop-up com modelos prontos, você escolhe, edita se quiser e só então envia. É uma decisão de propósito — quem fala com o cliente é o estúdio, não o sistema.</P>
       <Print titulo="Mensagens automáticas">
         <div className="space-y-2">
           {[['Ao iniciar edição', 'Estamos trabalhando nas suas fotos com muito carinho 💛'], ['Ao entregar', 'Suas fotos ficaram prontas! Acesse o site para baixar ✨'], ['Contrato', 'Abra o link e assine pelo celular']].map(([q, m]) => (
@@ -185,20 +199,24 @@ export function SecaoCosturas() {
       <div className="space-y-3">
         <Print titulo="Jornada completa de um cliente">
           <Fluxo vertical etapas={[
-            { label: 'Lead chega (Clientes / Funil)', icone: '👋' },
-            { label: 'Contrato assinado → cria conta a receber + move funil', icone: '✍️', destaque: true },
-            { label: 'Agendamento (site → Agenda + Financeiro)', icone: '📅' },
-            { label: 'Workflow: produção → entrega', icone: '🎬' },
-            { label: 'Seleção de fotos (Área do Cliente)', icone: '🖼️' },
-            { label: 'Iniciar edição → WhatsApp automático', icone: '🎨', destaque: true },
-            { label: 'Liberar download → WhatsApp + move funil p/ Entregue', icone: '⬇️', destaque: true },
+            { label: 'Pedido de contato pelo site → vira lead em Clientes', icone: '👋' },
+            { label: 'Conversa no WhatsApp e valor combinado', icone: '💬' },
+            { label: 'Fechar negócio no ensaio → cria sinal + saldo em A receber', icone: '🤝', destaque: true },
+            { label: 'Contrato (sempre ligado ao ensaio) → assinatura pelo link', icone: '✍️' },
+            { label: 'Você marca a data → aparece na Agenda', icone: '📅' },
+            { label: 'Galeria: sobe as provas → cliente escolhe na Área do Cliente', icone: '🖼️' },
+            { label: 'Fotos extras viram cobrança própria, recalculada a cada envio', icone: '➕', destaque: true },
+            { label: 'Produção por etapas → sobe as finais', icone: '🎬' },
+            { label: 'Cliente baixa em alta ou pronta para redes', icone: '⬇️', destaque: true },
             { label: 'Conta quitada → vira lançamento → Fluxo de caixa / DRE', icone: '💰', destaque: true },
           ]} />
         </Print>
       </div>
       <Caixa tipo="costura" titulo="Resumo das costuras">
         <ul className="ml-4 list-disc space-y-1">
-          <li>Reserva no site → Agenda + Financeiro</li>
+          <li>Pedido pelo site → Lead em Clientes (não marca horário)</li>
+          <li>Fechar negócio → Conta do sinal + Conta do saldo</li>
+          <li>Ensaio com data → aparece na Agenda</li>
           <li>Contrato assinado → Conta a receber + Funil</li>
           <li>Entregar fotos → WhatsApp + Funil "Entregue"</li>
           <li>Workflow "Entrega" → Funil "Entregue"</li>
