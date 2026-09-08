@@ -6,6 +6,7 @@
 // computador zerava as edições. Agora vive em portfolio_ensaios/portfolio_fotos
 // com bucket público próprio, como as galerias.
 import { supabase } from './supabase'
+import { validarImagem } from './storage'
 
 const BUCKET = 'portfolio'
 
@@ -91,6 +92,8 @@ export async function subirFotosPortfolio(ensaioId, files, onProgress) {
   for (let i = 0; i < lista.length; i++) {
     const file = lista[i]
     try {
+      const problema = validarImagem(file)
+      if (problema) throw new Error(problema)
       const blob = await reduzir(file, 2000)
       const path = `${ensaioId}/${crypto.randomUUID()}.jpg`
       const { error: upErr } = await supabase.storage

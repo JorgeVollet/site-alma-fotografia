@@ -28,6 +28,7 @@ export default function Agendar() {
     telefone: '',
     servico: params.get('servico') || (SERVICOS[0] && SERVICOS[0].id) || 'gestante',
     mensagem: '',
+    website: '',   // ISCA anti-robô: fica escondida, gente não preenche
   })
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -62,6 +63,7 @@ export default function Agendar() {
       servico: form.servico,           // slug ('gestante'), p/ filtrar depois
       servicoNome: nomeServico,        // nome bonito, p/ ler no CRM
       mensagem: form.mensagem,
+      website: form.website,
     })
     setEnviando(false)
 
@@ -146,6 +148,15 @@ export default function Agendar() {
                   <div className="mt-9 border-t border-cocoa-800/5 pt-7">
                     <h2 className="font-serif text-2xl text-cocoa-800">Como falamos com você?</h2>
                     <div className="mt-5 space-y-5">
+                      {/* Campo-isca: invisível para gente, irresistível para robô.
+                          Se vier preenchido, o servidor ignora o envio. */}
+                      <input
+                        type="text" name="website" tabIndex={-1} autoComplete="off"
+                        aria-hidden="true"
+                        value={form.website}
+                        onChange={(e) => set('website', e.target.value)}
+                        className="absolute left-[-9999px] h-0 w-0 opacity-0"
+                      />
                       <label className="block">
                         <span className="flex items-center gap-2 text-sm font-medium text-cocoa-700">
                           <User size={15} /> Nome

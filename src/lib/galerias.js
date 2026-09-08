@@ -1,6 +1,6 @@
 // Camada de dados de GALERIAS + FOTOS (Bloco 4A). Só a equipe (authenticated).
 import { supabase } from './supabase'
-import { gerarVersoes, uploadFotoVersoes, gerarEntrega, uploadEntrega, apagarArquivosFoto } from './storage'
+import { gerarVersoes, uploadFotoVersoes, gerarEntrega, uploadEntrega, apagarArquivosFoto, validarImagem } from './storage'
 import { fetchConfig } from './config'
 
 export function mapGaleria(row) {
@@ -201,6 +201,8 @@ export async function adicionarFotos(galeriaId, files, tipo = 'selecao', ordemIn
   for (let i = 0; i < lista.length; i++) {
     const file = lista[i]
     try {
+      const problema = validarImagem(file)
+      if (problema) throw new Error(problema)
       const fotoId = crypto.randomUUID()
       const paths = tipo === 'entrega'
         ? await uploadEntrega(galeriaId, fotoId, await gerarEntrega(file))

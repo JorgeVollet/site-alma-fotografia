@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 
 // servico     = slug ('gestante') -> vai pra ensaios.tipo_ensaio, filtrável
 // servicoNome = nome de exibição ('Gestar') -> entra no título/histórico
-export async function solicitarContato({ nome, email, telefone, servico, servicoNome, mensagem }) {
+export async function solicitarContato({ nome, email, telefone, servico, servicoNome, mensagem, website }) {
   const { data, error } = await supabase.rpc('solicitar_contato', {
     p_nome: nome,
     p_email: email || null,
@@ -14,6 +14,7 @@ export async function solicitarContato({ nome, email, telefone, servico, servico
     p_servico: servico || null,
     p_servico_nome: servicoNome || servico || null,
     p_mensagem: mensagem || null,
+    p_website: website || null,   // campo-isca: só robô preenche
   })
   if (error) {
     console.warn('[contato] solicitar falhou:', error.message)

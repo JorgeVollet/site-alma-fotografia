@@ -189,3 +189,25 @@ export async function apagarArquivosFoto(foto) {
     if (error) console.warn('[storage] remover original falhou:', error.message)
   }
 }
+
+// ── VALIDAÇÃO DE UPLOAD ──────────────────────────────────────
+// O accept="image/*" do HTML é só uma SUGESTÃO no seletor de arquivos: dá para
+// arrastar qualquer coisa ou trocar o filtro na caixa de diálogo. Sem checar
+// aqui, um usuário autenticado subia qualquer arquivo para o bucket.
+export const TAMANHO_MAX_MB = 25
+const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif']
+
+export function validarImagem(file) {
+  if (!file) return 'arquivo inválido'
+  const tipo = (file.type || '').toLowerCase()
+  // alguns celulares mandam type vazio em HEIC — aí cai na extensão
+  const ext = (file.name || '').toLowerCase().split('.').pop()
+  const extOk = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'avif'].includes(ext)
+  if (tipo && !TIPOS_ACEITOS.includes(tipo)) return 'não é uma imagem (' + tipo + ')'
+  if (!tipo && !extOk) return 'não parece uma imagem'
+  if (file.size > TAMANHO_MAX_MB * 1024 * 1024) {
+    return 'passa de ' + TAMANHO_MAX_MB + ' MB (' + (file.size / 1048576).toFixed(1) + ' MB)'
+  }
+  if (file.size === 0) return 'arquivo vazio'
+  return null   // null = ok
+}

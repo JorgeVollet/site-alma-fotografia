@@ -8,6 +8,14 @@ import { usePacotes } from '../../lib/catalogo'
 import { fetchGalerias, criarGaleria, atualizarGaleria, fetchFotos, excluirFoto, excluirFotos, adicionarFotos } from '../../lib/galerias'
 import { urlGaleria } from '../../lib/storage'
 
+// Alfabeto sem caracteres que o cliente confunde ao ler no WhatsApp.
+const ALFABETO_SENHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+function gerarSenhaGaleria(tam = 6) {
+  const buf = new Uint32Array(tam)
+  crypto.getRandomValues(buf)   // aleatoriedade criptográfica, não Math.random
+  return Array.from(buf, (n) => ALFABETO_SENHA[n % ALFABETO_SENHA.length]).join('')
+}
+
 function statusLabel(s) {
   return { selecionando: 'Cliente escolhendo', enviado: 'Seleção recebida', editando: 'Em edição', pronto: 'Entregue' }[s] || s
 }
@@ -397,7 +405,11 @@ function NovaGaleria({ onClose, onCriado }) {
     const pac = PACOTES.find((p) => p.id === ensaio.pacote)
     const prefixo = (cliente.nome.split(' ')[0] || 'GAL').toUpperCase().replace(/[^A-Z0-9]/g, '')
     const codigo = prefixo + Math.floor(1000 + Math.random() * 9000)
-    const senha = String(Math.floor(1000 + Math.random() * 9000)) // senha 4 dígitos, editável depois
+    // 6 caracteres (sem 0/O/1/I/L para o cliente não errar ao digitar).
+    // Antes eram 4 dígitos = 10.000 combinações, que um script testa em minutos.
+    // Com 6 caracteres desse alfabeto são ~1 bilhão — e a migration 23 ainda
+    // tranca a galeria após 5 erros.
+    const senha = gerarSenhaGaleria()
     const r = await criarGaleria({
       clienteId: cliente.id,
       ensaioId: ensaio.id,
