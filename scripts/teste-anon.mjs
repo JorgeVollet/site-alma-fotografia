@@ -81,16 +81,22 @@ await t('solicitar_contato EXISTE com 6 parâmetros', async () => {
     p_nome: '', p_email: null, p_telefone: null, p_servico: null, p_servico_nome: null, p_mensagem: null,
   })
   if (error) return 'erro: ' + error.message
-  if (data && data.ok === false) return true
-  return 'aceitou nome vazio: ' + JSON.stringify(data)
+  if (!data || data.ok !== false) return 'aceitou nome vazio: ' + JSON.stringify(data)
+  // exige a recusa CERTA: qualquer ok:false passava antes, inclusive um
+  // bloqueio por limite de envios — o teste ficava verde pelo motivo errado
+  if (data.limitado) return 'bloqueado por limite, nao pela validacao'
+  if (!/nome/i.test(data.erro || '')) return 'recusou por outro motivo: ' + data.erro
+  return true
 })
 await t('solicitar_contato exige e-mail OU telefone', async () => {
   const { data, error } = await sb.rpc('solicitar_contato', {
     p_nome: 'Teste', p_email: null, p_telefone: null, p_servico: null, p_servico_nome: null, p_mensagem: null,
   })
   if (error) return 'erro: ' + error.message
-  if (data && data.ok === false) return true
-  return 'CRIOU CLIENTE SEM CONTATO: ' + JSON.stringify(data)
+  if (!data || data.ok !== false) return 'CRIOU CLIENTE SEM CONTATO: ' + JSON.stringify(data)
+  if (data.limitado) return 'bloqueado por limite, nao pela validacao'
+  if (!/e-?mail|telefone/i.test(data.erro || '')) return 'recusou por outro motivo: ' + data.erro
+  return true
 })
 await t('solicitar_contato sem overload ambíguo', async () => {
   // Chamar com 5 dos 6 parâmetros NÃO prova nada sozinho: p_servico_nome tem
@@ -151,6 +157,30 @@ await t('finalizar_selecao responde no formato v4', async () => {
   })
   if (error) return 'erro: ' + error.message
   return data && data.ok === false ? true : 'formato inesperado'
+})
+
+await t('honeypot barra robo sem gravar nada', async () => {
+  const { data, error } = await sb.rpc('solicitar_contato', {
+    p_nome: 'Robo', p_email: 'robo@exemplo.invalido', p_telefone: '55999998888',
+    p_servico: null, p_servico_nome: null, p_mensagem: null, p_website: 'http://spam.invalido',
+  })
+  if (error) return 'erro: ' + error.message
+  if (!data || data.ok !== true || !data.ignorado) return 'nao ignorou a isca: ' + JSON.stringify(data)
+  return true
+})
+await t('erro de digitacao NAO gasta a cota de envios', async () => {
+  // 3 tentativas invalidas seguidas; se a cota fosse consumida na validacao,
+  // alguma viria como 'limitado' — foi o bug que a migration 24 corrigiu
+  let ult = null
+  for (let i = 0; i < 3; i++) {
+    const { data } = await sb.rpc('solicitar_contato', {
+      p_nome: '', p_email: null, p_telefone: null,
+      p_servico: null, p_servico_nome: null, p_mensagem: null,
+    })
+    ult = data
+  }
+  if (ult && ult.limitado) return 'tentativa invalida consumiu a cota (rodou a migration 24?)'
+  return true
 })
 
 console.log('\n== 5. BUCKETS PÚBLICOS (não podem ser listáveis) ==')
