@@ -12,7 +12,7 @@ export const STUDIO = {
   subTagline: 'Estúdio especialista em materno-infantil.',
   cidade: 'Boa Vista do Buricá',
   estado: 'RS',
-  endereco: 'Av. Farrapos, 560 — Centro, Boa Vista do Buricá · RS',
+  endereco: 'Avenida Padre Dehon, 595 — Sala 2, Boa Vista do Buricá · RS',
   cep: '98918-000',
   telefone: '(55) 98449-0509',
   whatsapp: '5598449-0509',
@@ -30,9 +30,9 @@ export const STUDIO = {
   googleLink: 'https://www.google.com/maps/place/ALMA+FOTOGRAFIA',
   // Coordenadas aproximadas de Boa Vista do Buricá/RS para o mapa
   mapsEmbed:
-    'https://www.google.com/maps?q=Av.+Farrapos,+560+-+Centro,+Boa+Vista+do+Buric%C3%A1+-+RS&output=embed',
+    'https://www.google.com/maps?q=Avenida+Padre+Dehon,+595+-+Sala+2,+Boa+Vista+do+Buric%C3%A1+-+RS&output=embed',
   mapsLink:
-    'https://www.google.com/maps/search/?api=1&query=Av.+Farrapos+560+Boa+Vista+do+Buric%C3%A1+RS',
+    'https://www.google.com/maps/search/?api=1&query=Avenida+Padre+Dehon+595+Sala+2+Boa+Vista+do+Buric%C3%A1+RS',
 }
 
 // --- Serviços / tipos de ensaio (nicho materno-infantil) -------------
